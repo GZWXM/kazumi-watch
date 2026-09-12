@@ -56,3 +56,41 @@ jobs:
           name: kazumi-watch-apks
           path: out/*.apk
           retention-days: 30
+
+  goldens:
+    # 把界面渲染成 PNG（无设备），用于检查圆屏适配
+    name: Render UI goldens
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.16.0
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        shell: bash
+
+      - name: Render goldens
+        run: flutter test --update-goldens test/curved_nav_bar_golden_test.dart
+        shell: bash
+
+      - name: Upload goldens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kazumi-goldens
+          path: |
+            test/goldens/
+            **/failures/
