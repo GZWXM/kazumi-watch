@@ -315,6 +315,29 @@ class _AppWidgetState extends State<AppWidget>
           themeMode: themeProvider.themeMode,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           routerConfig: ModularApp.routerConfigOf(context),
+          // ── Wear OS 圆屏适配（全局）──
+          // 手表上屏幕是圆的：四角被裁 + 系统字号偏大。
+          // 这里统一收窄字号、并按圆的几何留出左右安全区，避免逐页改。
+          builder: (context, child) {
+            if (child == null) return const SizedBox.shrink();
+            final mq = MediaQuery.of(context);
+            final shortest = mq.size.shortestSide;
+            // 短边 < 300dp 视为手表（手机短边一般 >= 320dp）
+            if (shortest >= 300) return child;
+            // 圆的内接正方形边长 = 直径 / √2，差值的一半就是左右安全区
+            final side = mq.size.width;
+            final safe = (side - side * 0.7071) / 2;
+            return MediaQuery(
+              data: mq.copyWith(
+                textScaler: const TextScaler.linear(0.72),
+                padding: mq.padding +
+                    EdgeInsets.symmetric(horizontal: safe, vertical: 2),
+                viewPadding: mq.viewPadding +
+                    EdgeInsets.symmetric(horizontal: safe, vertical: 2),
+              ),
+              child: child,
+            );
+          },
         );
       },
     );
