@@ -325,15 +325,19 @@ class _AppWidgetState extends State<AppWidget>
             // 短边 < 300dp 视为手表（手机短边一般 >= 320dp）
             if (shortest >= 300) return child;
             // 圆屏内容别贴边：按圆的几何留一点点，但手表上要小（参考手表原生 App 的 6-8dp 量级）
+            // 用系统给出的安全区（和 Android 侧 windowInsetsPadding 一个道理），
+            // 而不是自己猜数值 —— 圆边的可用区域只有系统知道。
             final side = mq.size.width;
             final safe = (side * 0.1465).clamp(6.0, 12.0);
             return MediaQuery(
               data: mq.copyWith(
                 textScaler: const TextScaler.linear(0.72),
-                padding: mq.padding +
-                    EdgeInsets.symmetric(horizontal: safe, vertical: 2),
-                viewPadding: mq.viewPadding +
-                    EdgeInsets.symmetric(horizontal: safe, vertical: 2),
+                padding: EdgeInsets.fromLTRB(
+                  mq.padding.left > 0 ? mq.padding.left : safe,
+                  mq.padding.top > 0 ? mq.padding.top : 2,
+                  mq.padding.right > 0 ? mq.padding.right : safe,
+                  mq.padding.bottom > 0 ? mq.padding.bottom : 2,
+                ),
               ),
               child: child,
             );
