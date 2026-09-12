@@ -122,10 +122,11 @@ class _PopularPageState extends State<PopularPage> {
               })),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
+        // 手表圆屏上标准 56dp FAB 过大，用 small（40dp）
         onPressed: () => scrollController.animateTo(0,
             duration: const Duration(milliseconds: 350), curve: Curves.easeOut),
-        child: const Icon(Icons.arrow_upward),
+        child: const Icon(Icons.arrow_upward, size: 18),
       ),
     );
   }
@@ -169,7 +170,7 @@ class _PopularPageState extends State<PopularPage> {
     return SliverAppBar(
       pinned: true,
       stretch: true,
-      expandedHeight: 120,
+      expandedHeight: 64,
       elevation: 0,
       titleSpacing: 0,
       centerTitle: false,
@@ -180,14 +181,14 @@ class _PopularPageState extends State<PopularPage> {
         child: dtb.DragToMoveArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final double maxExtent = 120 - MediaQuery.of(context).padding.top;
+              final double maxExtent = 64 - MediaQuery.of(context).padding.top;
               final t = (1 -
                   ((constraints.maxHeight - kToolbarHeight) /
                           (maxExtent - kToolbarHeight))
                       .clamp(0.0, 1.0));
               // 字重收缩后为 w500，展开时为 w700
               final fontWeight = t < 0.5 ? FontWeight.w700 : FontWeight.w500;
-              final fontSize = lerpDouble(28, 20, t)!;
+              final fontSize = lerpDouble(17, 14, t)!;
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(

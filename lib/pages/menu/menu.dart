@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/curved_nav_bar.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -137,6 +138,51 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   }
 
   Widget _bottomMenu(BuildContext context, int selectedIndex) {
+    // 圆形表盘：用弧形导航（方形 NavigationBar 的高 80dp 会顶出圆外被裁）
+    final size = MediaQuery.sizeOf(context);
+    final isRoundWatch = size.shortestSide < 400 &&
+        (size.width - size.height).abs() < size.width * 0.12;
+    if (isRoundWatch) {
+      return Scaffold(
+        body: Stack(
+          children: [
+            _outlet(context),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 104,
+              child: CurvedNavBar(
+                selectedIndex: selectedIndex,
+                onSelected: _selectDestination,
+                items: const [
+                  (
+                    icon: Icons.home_outlined,
+                    selectedIcon: Icons.home,
+                    label: '推荐'
+                  ),
+                  (
+                    icon: Icons.timeline_outlined,
+                    selectedIcon: Icons.timeline,
+                    label: '时间表'
+                  ),
+                  (
+                    icon: Icons.favorite_outlined,
+                    selectedIcon: Icons.favorite,
+                    label: '追番'
+                  ),
+                  (
+                    icon: Icons.settings_outlined,
+                    selectedIcon: Icons.settings,
+                    label: '我的'
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       body: _outlet(context),
       bottomNavigationBar: NavigationBar(
