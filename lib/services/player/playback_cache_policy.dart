@@ -4,6 +4,7 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/network/metered_network_service.dart';
 import 'package:kazumi/services/player/low_memory_mode.dart';
 import 'package:kazumi/utils/async_serial_queue.dart';
+import 'package:kazumi/utils/device.dart';
 import 'package:media_kit/media_kit.dart';
 
 class PlaybackCachePolicy {
@@ -15,6 +16,11 @@ class PlaybackCachePolicy {
 
   static const int _lowMemoryBufferSize = 2 * 1024 * 1024;
   static const int _defaultBufferSize = 1500 * 1024 * 1024;
+
+  /// HLS 变体码率上限（bps），仅在低分辨率设备（手表）上启用。
+  /// 约 800 kbps 对应常见番剧源的 480p 档附近，避免在小屏上拉 1080p：
+  /// 省解码功耗、省计量流量。
+  static const String _watchHlsBitrateCap = '800000';
 
   final bool Function() _isLocalPlayback;
   final Player? Function() _currentPlayer;
@@ -64,6 +70,14 @@ class PlaybackCachePolicy {
         final size = bufferSize.toString();
         await pp.setProperty('demuxer-max-bytes', size);
         await pp.setProperty('demuxer-max-back-bytes', size);
+        // 手表优化：低分辨率屏幕上限制 HLS 变体码率，避免拉 1080p 档位。
+        try {
+          if (await isLowResolution()) {
+            await pp.setProperty('hls-bitrate', _watchHlsBitrateCap);
+          }
+        } catch (_) {
+          // 非致命：属性不被支持或设备信息不可用，忽略即可。
+        }
       });
     } catch (e) {
       KazumiLogger().w(

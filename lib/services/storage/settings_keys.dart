@@ -366,7 +366,7 @@ class SettingsKeys {
   );
   static const disableSuperResolutionWarning = SettingKey<bool>(
     _SettingBoxKey.disableSuperResolutionWarning,
-    false,
+    true,
     group: SettingGroup.player,
   );
   static const playerDisableAnimations = SettingKey<bool>(
