@@ -208,7 +208,11 @@ class MainActivity: AudioServiceActivity() {
         if (inPipMode) {
             return
         }
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // 圆形手表：让系统把内容垫进圆内安全区（等价于传统 View 的 fitsSystemWindows）。
+        // 非全屏时保持 true，圆边不会裁内容；全屏播放时才放开让视频铺满。
+        val isRoundWatch = resources.configuration.isScreenRound
+        val fitSystemWindows = !androidFullscreen && isRoundWatch
+        WindowCompat.setDecorFitsSystemWindows(window, fitSystemWindows)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (androidFullscreen) {
             controller.systemBarsBehavior =

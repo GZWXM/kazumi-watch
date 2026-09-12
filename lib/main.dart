@@ -24,12 +24,22 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   if (Platform.isAndroid || Platform.isIOS) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      statusBarColor: Colors.transparent,
-    ));
+    // Wear OS 圆表：不能用 edgeToEdge —— 那会让系统不再给圆屏安全区兜底，
+    // 内容直接铺到方形 framebuffer 的四个角上（被圆边裁掉）。
+    // 判断方式：短边 < 300dp 视为手表（手机短边一般 >= 320dp）。
+    final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+    final shortestDp = view == null
+        ? double.infinity
+        : view.physicalSize.shortestSide / view.devicePixelRatio;
+    final isWatch = shortestDp < 300;
+    if (!isWatch) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarColor: Colors.transparent,
+      ));
+    }
   }
 
   if (Platform.isAndroid) {
