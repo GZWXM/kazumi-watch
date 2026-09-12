@@ -324,9 +324,9 @@ class _AppWidgetState extends State<AppWidget>
             final shortest = mq.size.shortestSide;
             // 短边 < 300dp 视为手表（手机短边一般 >= 320dp）
             if (shortest >= 300) return child;
-            // 圆的内接正方形边长 = 直径 / √2，差值的一半就是左右安全区
+            // 圆屏内容别贴边：按圆的几何留一点点，但手表上要小（参考手表原生 App 的 6-8dp 量级）
             final side = mq.size.width;
-            final safe = (side - side * 0.7071) / 2;
+            final safe = (side * 0.1465).clamp(6.0, 12.0);
             return MediaQuery(
               data: mq.copyWith(
                 textScaler: const TextScaler.linear(0.72),
