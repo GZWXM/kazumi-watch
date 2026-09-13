@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
@@ -482,9 +483,14 @@ class _VideoPageState extends State<VideoPage>
                         flex: videoFillsWindow ? 1 : 0,
                         child: Container(
                           color: Colors.black,
+                          // 手表圆屏：视频区最多占屏高 40%（原为"宽×9/16"，
+                          // 在方屏手表上会吃掉 56% 高度，把下方的选集列表挤到只剩 108px）。
                           height: videoFillsWindow
                               ? MediaQuery.sizeOf(context).height
-                              : MediaQuery.sizeOf(context).width * 9 / 16,
+                              : math.min(
+                                  MediaQuery.sizeOf(context).width * 9 / 16,
+                                  MediaQuery.sizeOf(context).height * 0.40,
+                                ),
                           width: MediaQuery.sizeOf(context).width,
                           child: Focus(
                             focusNode: keyboardFocus,

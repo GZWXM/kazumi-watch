@@ -14,8 +14,10 @@ class PlayerContentTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final height = (MediaQuery.textScalerOf(context).scale(14) * 1.5 + 16)
-        .clamp(48.0, double.infinity);
+    // 手表圆屏：切换栏压到 28~40dp（原 clamp 下限 48dp = 屏高的 21%，
+    // 加上视频区后把选集列表挤得几乎没法滑）。手机上 28dp 也够点。
+    final height = (MediaQuery.textScalerOf(context).scale(14) * 1.2 + 8)
+        .clamp(28.0, 40.0);
 
     return Material(
       color: colors.surface,
