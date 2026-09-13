@@ -38,7 +38,7 @@ class CurvedNavBar extends StatelessWidget {
         final double radius = w * _radiusFactor;
         final Offset center = Offset(w / 2, h / 2 + w * 0.02);
 
-        const double itemSize = 34;
+        const double itemSize = 42;
         final double sweep = _sweepDeg * math.pi / 180;
         final int n = items.length;
 
@@ -62,17 +62,15 @@ class CurvedNavBar extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onSelected(i),
-              // FittedBox：内容超出 34x34 的格子时自动等比缩小，
-              // 避免 "RenderFlex overflowed"（选中项 = 图标 + 文字，原本正好差 1px）
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+              // 格子给到 42（内容 = 图标 18 + 文字 ~12 = 30，留足余量），
+              // 不再靠缩放兜底：FittedBox 会把内容缩过头导致整个导航栏看不见。
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                     Icon(
                       sel ? it.selectedIcon : it.icon,
-                      size: 20,
+                      size: 18,
                       color: sel ? scheme.primary : scheme.onSurfaceVariant,
                     ),
                     if (sel)
@@ -80,12 +78,11 @@ class CurvedNavBar extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           it.label,
-                          style: TextStyle(fontSize: 9, color: scheme.primary),
+                          style: TextStyle(fontSize: 8.5, color: scheme.primary),
                           maxLines: 1,
                         ),
                       ),
                   ],
-                ),
               ),
             ),
           ));
