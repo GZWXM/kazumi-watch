@@ -62,24 +62,30 @@ class CurvedNavBar extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onSelected(i),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    sel ? it.selectedIcon : it.icon,
-                    size: 20,
-                    color: sel ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                  if (sel)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        it.label,
-                        style: TextStyle(fontSize: 9, color: scheme.primary),
-                        maxLines: 1,
-                      ),
+              // FittedBox：内容超出 34x34 的格子时自动等比缩小，
+              // 避免 "RenderFlex overflowed"（选中项 = 图标 + 文字，原本正好差 1px）
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      sel ? it.selectedIcon : it.icon,
+                      size: 20,
+                      color: sel ? scheme.primary : scheme.onSurfaceVariant,
                     ),
-                ],
+                    if (sel)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          it.label,
+                          style: TextStyle(fontSize: 9, color: scheme.primary),
+                          maxLines: 1,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ));
