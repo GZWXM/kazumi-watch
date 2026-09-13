@@ -29,11 +29,11 @@ void main() {
         ),
         home: Scaffold(
           backgroundColor: const Color(0xFF0A0A0A),
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              height: 200,
-              child: CurvedNavBar(
+          // 用整屏高度（466 = 手表屏幕），与真机的使用场景一致：
+          // CurvedNavBar 的弧线位置是按容器尺寸算的，容器给矮了图标会跑到外面被裁。
+          body: SizedBox(
+            height: 466,
+            child: CurvedNavBar(
                 selectedIndex: 0,
                 onSelected: (_) {},
                 items: const [
@@ -43,7 +43,6 @@ void main() {
                   (icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: '我的'),
                 ],
               ),
-            ),
           ),
         ),
       ),
