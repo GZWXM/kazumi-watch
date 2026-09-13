@@ -119,6 +119,37 @@ abstract class _PluginsController with Store {
       await newPluginDirectory!.create(recursive: true);
     }
     await _loadAllPlugins();
+    await _mergeBundledPlugins();
+  }
+
+  /// 把 assets 里的**内置规则**补进插件列表（只补缺，不动用户自己装的同名插件）。
+  ///
+  /// 为什么放在 init() 而不是只在引导页：引导页只在**首次安装**时执行，
+  /// 覆盖升级不会跑 → 新版内置的规则永远进不来（手表版"搜索不出结果"就是这么来的）。
+  Future<void> _mergeBundledPlugins() async {
+    try {
+      final assetManifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final bundled = assetManifest
+          .listAssets()
+          .where((a) => a.startsWith('assets/plugins/') && a.endsWith('.json'));
+      final existing = pluginList.map((p) => p.name).toSet();
+      var added = 0;
+      for (final path in bundled) {
+        final jsonString = await rootBundle.loadString(path);
+        final plugin = Plugin.fromJson(jsonDecode(jsonString));
+        if (existing.contains(plugin.name)) continue;
+        pluginList.add(plugin);
+        existing.add(plugin.name);
+        added++;
+      }
+      if (added > 0) {
+        await _savePlugins();
+        KazumiLogger().i('Plugin: merged $added bundled rule(s) on startup');
+      }
+    } catch (error, stackTrace) {
+      KazumiLogger().e('Plugin: failed to merge bundled rules',
+          error: error, stackTrace: stackTrace);
+    }
   }
 
   // Loads all plugins from the directory, populates the plugin list, and saves to plugins.json if needed
