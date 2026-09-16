@@ -42,3 +42,8 @@ bool isTablet() {
 bool isCompact() {
   return !isDesktop() && !isWideScreen();
 }
+
+/// 统一设备判定：是否为圆形手表屏幕
+/// 短边 < 300dp 且宽高差在 12% 以内视为圆表
+bool isRoundWatch(Size s) =>
+    s.shortestSide < 300 && (s.width - s.height).abs() <= s.width * 0.12;
