@@ -268,11 +268,6 @@ class SettingsKeys {
     '/tab/popular/',
     group: SettingGroup.interface,
   );
-  static const isWideScreen = SettingKey<bool>(
-    _SettingBoxKey.isWideScreen,
-    false,
-    group: SettingGroup.interface,
-  );
   static const webDavEnable = SettingKey<bool>(
     _SettingBoxKey.webDavEnable,
     false,
@@ -287,6 +282,26 @@ class SettingsKeys {
     _SettingBoxKey.webDavEnableCollect,
     false,
     group: SettingGroup.webdav,
+  );
+  static const webDavEnableDanmakuShield = SettingKey<bool>(
+    'webDavEnableDanmakuShield',
+    false,
+    group: SettingGroup.webdav,
+  );
+  static const danmakuShieldSyncDeviceId = SettingKey<String>(
+    'danmakuShieldSyncDeviceId',
+    '',
+    group: SettingGroup.sync,
+  );
+  static const danmakuShieldSyncState = SettingKey<String>(
+    'danmakuShieldSyncState',
+    '',
+    group: SettingGroup.sync,
+  );
+  static const danmakuShieldSyncCorruptState = SettingKey<String>(
+    'danmakuShieldSyncCorruptState',
+    '',
+    group: SettingGroup.sync,
   );
   static const webDavURL = SettingKey<String>(
     _SettingBoxKey.webDavURL,
@@ -574,10 +589,13 @@ class SettingsKeys {
     enableBangumiProxy,
     enableSystemProxy,
     defaultStartupPage,
-    isWideScreen,
     webDavEnable,
     webDavEnableHistory,
     webDavEnableCollect,
+    webDavEnableDanmakuShield,
+    danmakuShieldSyncDeviceId,
+    danmakuShieldSyncState,
+    danmakuShieldSyncCorruptState,
     webDavURL,
     webDavUsername,
     webDavPassword,
@@ -686,9 +704,6 @@ class _SettingBoxKey {
       enableBangumiProxy = 'enableBangumiProxy',
       enableSystemProxy = 'enableSystemProxy',
       defaultStartupPage = 'defaultStartupPage',
-
-      /// Deprecated
-      isWideScreen = 'isWideScreen',
       webDavEnable = 'webDavEnable',
       webDavEnableHistory = 'webDavEnableHistory',
       webDavEnableCollect = 'webDavEnableCollect',
