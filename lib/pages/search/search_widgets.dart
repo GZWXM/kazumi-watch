@@ -9,18 +9,6 @@ const _searchSortLabels = {
 
 String _sortLabel(String sort) => _searchSortLabels[sort] ?? '热度';
 
-String _filterSummary(SearchFilterState state) => [
-      ...state.tags,
-      if (state.season.isNotEmpty) state.season,
-      if (state.season.isEmpty && state.dateRange != null)
-        '${state.dateRange!.start} 至 ${state.dateRange!.end}',
-      if (state.scoreRange?.isValid == true)
-        '评分 ${state.scoreRange!.toToken()}',
-      if (state.rankRange?.isValid == true) '排名 ${state.rankRange!.toToken()}',
-      if (state.weekdays.isNotEmpty)
-        '周${state.weekdays.map((day) => '一二三四五六日'[day - 1]).join('、')}',
-    ].join(' · ');
-
 class _SearchSortMenu extends StatelessWidget {
   const _SearchSortMenu({required this.value, required this.onChanged});
 
