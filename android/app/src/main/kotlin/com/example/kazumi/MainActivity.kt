@@ -186,9 +186,9 @@ class MainActivity: AudioServiceActivity() {
             return
         }
         // 圆形手表：让系统把内容垫进圆内安全区（等价于传统 View 的 fitsSystemWindows）。
-        // 非全屏时保持 true，圆边不会裁内容；全屏播放时才放开让视频铺满。
-        val isRoundWatch = resources.configuration.isScreenRound
-        val fitSystemWindows = !androidFullscreen && isRoundWatch
+        // 非圆表沿用上游行为（false，由 Flutter 侧自己处理 inset）。
+        // 注：上游已把「是否全屏」从本函数移出（系统栏归全尺寸窗口管），故不再有 androidFullscreen 参数。
+        val fitSystemWindows = resources.configuration.isScreenRound
         WindowCompat.setDecorFitsSystemWindows(window, fitSystemWindows)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (systemBarsHidden) {
