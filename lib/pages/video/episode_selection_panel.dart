@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
@@ -49,7 +47,6 @@ class EpisodeSelectionPanelState extends State<EpisodeSelectionPanel> {
   static const _gridInset = 12.0;
   static const _gridSpacing = 4.0;
   static const _gridCrossCount = 4;
-  static const _gridCell = 44.0;
 
   bool get _canLocate =>
       widget.selectedRoad >= 0 &&
