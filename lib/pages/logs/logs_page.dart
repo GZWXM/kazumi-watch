@@ -198,69 +198,7 @@ class _LogsPageState extends State<LogsPage> {
       child: WatchBandList(
         controller: _scrollController,
         itemCount: totalItems,
-        pitch: 24.0, // Smaller pitch for log lines to fit more, but standard rows are 52. 
-                     // The spec says "scrolling end item centered two 44 high tonal buttons".
-                     // Log lines themselves need a pitch. Let's use a smaller pitch for text lines.
-                     // However, WatchBandList uses uniform pitch. 
-                     // To mix pitches, we might need a custom approach or just accept uniform pitch.
-                     // Spec doesn't explicitly define log line pitch, but implies standard list behavior.
-                     // Let's stick to a reasonable pitch for text, e.g., 24 or 28.
-                     // But wait, the last item is buttons (height ~44+padding).
-                     // If pitch is fixed, the last item will be cramped or have huge gap.
-                     // Better to use ListView.builder directly inside WatchScaffold if mixed heights are needed,
-                     // OR use WatchBandList with a large enough pitch that accommodates the last item?
-                     // No, WatchBandList calculates inset based on index * pitch.
-                     // If I use ListView.builder, I lose the automatic CircleInsets handling per row unless I implement it.
-                     // Let's assume standard log line height is small.
-                     // Actually, let's look at the constraint: "delete horizontal scroll... monospace 12->11".
-                     // And "scrolling end item centered two 44 high tonal buttons".
-                     
-                     // Strategy: Use WatchBandList. Set pitch to something suitable for logs (e.g., 24).
-                     // For the last item (index == _logLines.length), we return a widget that ignores the tight pitch 
-                     // or we adjust the layout. 
-                     // Wait, WatchBandList wraps each item in Padding(horizontal: inset). It does NOT enforce vertical height.
-                     // So the item itself can be taller than the pitch? 
-                     // If item is taller than pitch, they will overlap.
-                     // Therefore, pitch MUST be >= max item height.
-                     // Buttons are 44 high. Log lines are ~16-20 high.
-                     // So pitch should be at least 44? That makes logs very sparse.
-                     
-                     // Alternative: Don't use WatchBandList for the whole thing.
-                     // Use a CustomScrollView or just a ListView and manually apply insets?
-                     // The prompt says "Use WatchBandList ... or WatchRow / WatchMediaRow".
-                     // It doesn't strictly forbid other widgets, but encourages these.
-                     
-                     // Let's re-read carefully: "logs_page: WatchScaffold('日志')；删两 FAB → 滚动末项居中两个 44 高 tonal 按钮..."
-                     // It doesn't say "Must use WatchBandList".
-                     // However, using WatchBandList is the standard way to handle circular insets in lists here.
-                     
-                     // If I use WatchBandList with pitch=52 (standard), log lines will be spaced out significantly.
-                     // This might be acceptable for readability on a tiny screen.
-                     // Or I can create a hybrid:
-                     // A Column inside the body? No, needs scrolling.
-                     
-                     // Let's try to make the last item special.
-                     // If I use `ListView.builder` and manually calculate insets for each row, I can vary heights.
-                     // But `WatchBandList` is provided as the API.
-                     // Let's check if `WatchBandList` supports variable heights.
-                     // Implementation of `WatchBandList`:
-                     // `final yTop = CircleInsets.bodyTop + widget.headerExtent + index * widget.pitch - scrollOffset;`
-                     // This assumes every item starts at `index * pitch`.
-                     // So yes, it enforces uniform vertical spacing.
-                     
-                     // Given the constraints, uniform spacing is likely intended for simplicity.
-                     // I will set pitch to 44 to accommodate the button row height reasonably,
-                     // or maybe 36? Buttons are 44 high.
-                     // Let's use pitch = 44. Log lines will be vertically centered within their slot if we wrap them in SizedBox(height: 44).
-                     
-                     // Actually, looking at `WatchRow`, it has `SizedBox(height: 44)`.
-                     // So pitch 52 is standard for rows.
-                     // For logs, maybe we want tighter packing.
-                     // If I use `WatchBandList`, I must choose one pitch.
-                     // Let's choose pitch = 44.
-                     // Log line: Text wrapped in SizedBox(height: 44, child: Center(child: Text(...))).
-                     // Action Row: SizedBox(height: 44, child: Row(...)).
-                     // This ensures no overlap.
+        pitch: 44.0,   // 日志行与末行按钮统一 44dp 槽位；pitch 必须 ≥ 槽位高，否则行间重叠
         itemBuilder: (context, index) {
           if (index < _logLines.length) {
             return _buildLogLine(index);
@@ -274,23 +212,21 @@ class _LogsPageState extends State<LogsPage> {
 
   Widget _buildLogLine(int index) {
     final theme = Theme.of(context);
-    // Using watchTheme sizes: labelSmall (10) or bodyMedium (13)?
-    // Spec says: "monospace 12→11".
-    // So fontSize 11.
+    // 规范：monospace 12 → 11
     return SizedBox(
-      height: 44, // Match pitch to prevent overlap
+      height: 44, // 与 pitch 一致
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           _logLines[index],
           softWrap: true, // Allow wrapping since no horizontal scroll
-          overflow: TextOverflow.visible, // Or ellipsis if strict height
+          overflow: TextOverflow.visible,
           style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 11,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          maxLines: 2, // Prevent infinite growth breaking layout
+          maxLines: 2,
         ),
       ),
     );
