@@ -117,28 +117,30 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
           child: child,
         );
 
+  // 圆屏全屏化：整页自绘标题带 + 核心带内缩，替代原 BottomSheet 头部
+  static final Rect _bodyBand = const Rect.fromLTWH(
+      0, CircleInsets.bodyTop, CircleInsets.screen, 160);
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final pending = widget.groups.where((group) => group.isSearching).length;
     final resultCount = widget.groups
         .where((group) => group.hasResults)
         .fold(0, (sum, group) => sum + group.results.length);
+    final sideInset = CircleInsets.insetOf(_bodyBand);
+    final headerInset = CircleInsets.bandInset(CircleInsets.titleTop);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Column(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
         children: [
-          MaterialBottomSheetHeader(
-            title: '播放来源',
-            description: pending > 0
-                ? '检索中 ${widget.groups.length - pending}/${widget.groups.length} · $resultCount 个结果'
-                : '${widget.groups.length} 个来源 · $resultCount 个结果',
-            compact: true,
-            onClose: widget.onClose,
-          ),
-          Expanded(
-            child: Scrollbar(
-              controller: _scrollController,
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: CircleInsets.bodyTop,
+                bottom: 45,
+              ),
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
@@ -147,11 +149,12 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                       child: GeneralEmptyState(
                         icon: Icons.extension_rounded,
                         title: '请先在规则管理中添加来源',
+                        compact: true,
                       ),
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: EdgeInsets.symmetric(horizontal: sideInset),
                       sliver: SliverList.builder(
                         itemCount: widget.groups.length,
                         findChildIndexCallback: (key) {
@@ -163,14 +166,49 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                           final group = widget.groups[index];
                           return Padding(
                             key: ValueKey(group.name),
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: _buildSourceGroup(group),
                           );
                         },
                       ),
                     ),
-                  const SliverToBoxAdapter(
-                    child: SafeArea(top: false, child: SizedBox(height: 24)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
+            ),
+          ),
+          // 自绘标题带「选择来源」
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              alignment: Alignment.centerLeft,
+              height: 20,
+              margin: const EdgeInsets.only(top: CircleInsets.titleTop),
+              padding: EdgeInsets.symmetric(horizontal: headerInset),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '选择来源',
+                      style: theme.textTheme.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    pending > 0
+                        ? '检索中 ${widget.groups.length - pending}/${widget.groups.length} · $resultCount'
+                        : '${widget.groups.length} 个来源 · $resultCount',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: widget.onClose,
+                    icon: const Icon(Icons.close_rounded, size: 20),
                   ),
                 ],
               ),
@@ -211,12 +249,12 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                   child: Material(
                     type: MaterialType.transparency,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                       onTap: toggle,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 48),
+                        constraints: const BoxConstraints(minHeight: 40),
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                          padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
                           child: Row(
                             children: [
                               Expanded(
@@ -225,6 +263,8 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   color: colors.onSurfaceVariant,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               )),
                               const SizedBox(width: 8),
                               Text(
@@ -255,11 +295,13 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
         ),
         if (!collapsed && group.keyword != widget.keyword)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             child: Text(
               '检索词：${group.keyword}',
-              style: theme.textTheme.bodySmall
+              style: theme.textTheme.labelSmall
                   ?.copyWith(color: colors.onSurfaceVariant),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         _animateSize(
@@ -322,10 +364,10 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                 ? _collapseFromFooter(group.name)
                 : _setDisplay(group.name, _SourceDisplay.expanded),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
+              constraints: const BoxConstraints(minHeight: 44),
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -396,20 +438,22 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
         label: '播放 ${result.name}，来源 ${group.name}',
         excludeSemantics: true,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
+          constraints: const BoxConstraints(minHeight: 52),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Expanded(
                   child: Text(result.name,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurface,
-                      )),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Icon(Icons.play_arrow_rounded,
-                    color: theme.colorScheme.primary),
+                    size: 20, color: theme.colorScheme.primary),
               ],
             ),
           ),
@@ -419,9 +463,9 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
   }
 
   Widget _buildSearching() => ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 64),
+        constraints: const BoxConstraints(minHeight: 52),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               const LoadingIndicator(size: 20, semanticsLabel: '正在检索'),
@@ -454,7 +498,7 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
             () => widget.onRetry(sourceName),
           );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -482,7 +526,7 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                         )),
                     const SizedBox(height: 2),
                     Text(hint,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         )),
                   ],
