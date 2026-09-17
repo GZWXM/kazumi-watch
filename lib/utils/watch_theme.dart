@@ -18,16 +18,16 @@ ThemeData watchTheme(ThemeData base) {
   }
 
   final textTheme = base.textTheme.copyWith(
-    displaySmall: _style(base.textTheme.displaySmall, 22, FontWeight.w700),
-    headlineSmall: _style(base.textTheme.headlineSmall, 15, FontWeight.w600),
-    titleLarge: _style(base.textTheme.titleLarge, 15, FontWeight.w600),
-    titleMedium: _style(base.textTheme.titleMedium, 15, FontWeight.w600),
-    bodyLarge: _style(base.textTheme.bodyLarge, 13, FontWeight.w500),
-    bodyMedium: _style(base.textTheme.bodyMedium, 13, FontWeight.w500),
-    titleSmall: _style(base.textTheme.titleSmall, 11, FontWeight.w400),
-    labelLarge: _style(base.textTheme.labelLarge, 13, FontWeight.w600),
-    labelMedium: _style(base.textTheme.labelMedium, 11, FontWeight.w400),
-    labelSmall: _style(base.textTheme.labelSmall, 10, FontWeight.w400),
+    displaySmall: styleOf(base.textTheme.displaySmall, 22, FontWeight.w700),
+    headlineSmall: styleOf(base.textTheme.headlineSmall, 15, FontWeight.w600),
+    titleLarge: styleOf(base.textTheme.titleLarge, 15, FontWeight.w600),
+    titleMedium: styleOf(base.textTheme.titleMedium, 15, FontWeight.w600),
+    bodyLarge: styleOf(base.textTheme.bodyLarge, 13, FontWeight.w500),
+    bodyMedium: styleOf(base.textTheme.bodyMedium, 13, FontWeight.w500),
+    titleSmall: styleOf(base.textTheme.titleSmall, 11, FontWeight.w400),
+    labelLarge: styleOf(base.textTheme.labelLarge, 13, FontWeight.w600),
+    labelMedium: styleOf(base.textTheme.labelMedium, 11, FontWeight.w400),
+    labelSmall: styleOf(base.textTheme.labelSmall, 10, FontWeight.w400),
   );
 
   return base.copyWith(
