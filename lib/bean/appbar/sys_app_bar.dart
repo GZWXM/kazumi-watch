@@ -47,6 +47,66 @@ class SysAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    
+    // Watch branch compatibility shim
+    if (isRoundWatch(mq.size)) {
+      final topPadding = mq.padding.top > 24 ? mq.padding.top : 24.0;
+      final height = topPadding + 20.0;
+      
+      return SizedBox(
+        height: height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 返回键（40×40 触控格，与标题带中线对齐）
+            Positioned(
+              left: 0,
+              top: topPadding - 10,
+              width: 40,
+              height: 40,
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                child: leading ??
+                    ((ModalRoute.of(context)?.impliesAppBarDismissal ?? false)
+                        ? IconButton(
+                            onPressed: () {
+                              context.maybePop();
+                            },
+                            icon: Icon(Icons.arrow_back),
+                          )
+                        : null),
+              ),
+            ),
+            // 标题（标题带垂直居中，超长省略）
+            Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: topPadding),
+                child: SizedBox(
+                  height: 20,
+                  child: DefaultTextStyle(
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ) ??
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    child: Text(
+                      title is Text ? (title as Text).data ?? '' : '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     List<Widget> acs = [];
     if (actions != null) {
       acs.addAll(actions!);

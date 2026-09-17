@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
+import 'package:kazumi/utils/device.dart';
 
 /// Shrink-wraps in slivers and scrolls within bounded page or media surfaces.
 class GeneralErrorWidget extends StatelessWidget {
@@ -26,6 +27,11 @@ class GeneralErrorWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final isWatch = isRoundWatch(MediaQuery.sizeOf(context));
+    
+    // Watch 下恒 compact，且强制使用指定的紧凑尺寸
+    final effectiveCompact = isWatch || compact;
+    
     final errorActions = [
       if (onRetry != null)
         StateActionButton(
@@ -39,7 +45,7 @@ class GeneralErrorWidget extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         primary: false,
-        padding: EdgeInsets.all(compact ? 16 : 24),
+        padding: EdgeInsets.all(effectiveCompact ? 16 : 24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
           child: Column(
@@ -47,12 +53,12 @@ class GeneralErrorWidget extends StatelessWidget {
             children: [
               StateIconBadge(
                 icon: icon,
-                size: compact ? 48 : 80,
-                iconSize: compact ? 24 : 36,
+                size: effectiveCompact ? 48 : 80,
+                iconSize: effectiveCompact ? 24 : 36,
                 backgroundColor: colors.errorContainer,
                 foregroundColor: colors.onErrorContainer,
               ),
-              SizedBox(height: compact ? 16 : 24),
+              SizedBox(height: effectiveCompact ? 16 : 24),
               Semantics(
                 liveRegion: true,
                 child: Column(
@@ -63,12 +69,12 @@ class GeneralErrorWidget extends StatelessWidget {
                       child: Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: (compact
-                                ? theme.textTheme.titleMedium
+                        style: (effectiveCompact
+                                ? theme.textTheme.titleMedium?.copyWith(fontSize: 13, fontWeight: FontWeight.w700)
                                 : theme.textTheme.headlineSmall)
                             ?.copyWith(
                                 color: colors.onSurface,
-                                fontWeight: FontWeight.w700),
+                                fontWeight: effectiveCompact ? null : FontWeight.w700),
                       ),
                     ),
                     if (errMsg.isNotEmpty) ...[
@@ -77,14 +83,14 @@ class GeneralErrorWidget extends StatelessWidget {
                         errMsg,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: colors.onSurfaceVariant),
+                            ?.copyWith(color: colors.onSurfaceVariant, fontSize: effectiveCompact ? 11 : null),
                       ),
                     ],
                   ],
                 ),
               ),
               if (errorActions.isNotEmpty) ...[
-                SizedBox(height: compact ? 16 : 24),
+                SizedBox(height: effectiveCompact ? 16 : 24),
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 8,
