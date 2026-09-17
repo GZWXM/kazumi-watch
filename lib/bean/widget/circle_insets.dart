@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+
 /// 圆屏几何原语：圆上每行的可用宽度是深度 y 的函数，唯一的几何事实来源。
 ///
 /// 验算（R=116.5、屏 233）：

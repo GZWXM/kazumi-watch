@@ -55,10 +55,12 @@ ThemeData watchTheme(ThemeData base) {
       ),
     ),
     
-    // IconButton 约束
+    // IconButton 尺寸（40×40 触控格）
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
-        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        minimumSize: const Size(40, 40),
+        maximumSize: const Size(40, 40),
+        padding: EdgeInsets.zero,
       ),
     ),
     
@@ -67,7 +69,6 @@ ThemeData watchTheme(ThemeData base) {
       labelStyle: textTheme.labelMedium,
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     
     // ListTile 样式
