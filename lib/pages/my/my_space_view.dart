@@ -32,7 +32,6 @@ class MySpaceView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     // 圆屏单列顺序行：规则置顶用主色行，其余走 WatchRow
     final rows = <(String, IconData, MyDestination, String?)>[
       (
@@ -283,14 +282,12 @@ class _ExpressiveAction extends StatefulWidget {
     required this.foreground,
     required this.onTap,
     required this.child,
-    this.radius = _tileRadius,
   });
 
   final Color color;
   final Color foreground;
   final VoidCallback onTap;
   final Widget child;
-  final BorderRadius radius;
 
   @override
   State<_ExpressiveAction> createState() => _ExpressiveActionState();
@@ -317,7 +314,7 @@ class _ExpressiveActionState extends State<_ExpressiveAction> {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: widget.color,
-            borderRadius: _pressed ? BorderRadius.circular(16) : widget.radius,
+            borderRadius: _pressed ? BorderRadius.circular(16) : _tileRadius,
           ),
           child: Material(
             type: MaterialType.transparency,
