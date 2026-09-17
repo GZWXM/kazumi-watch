@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
-import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
+import 'package:kazumi/bean/dialog/material_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
+import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
-import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/constants.dart';
@@ -346,7 +346,7 @@ class _SearchPageState extends State<SearchPage> {
             title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
             meta: meta,
             onTap: () {
-              Modular.to.pushNamed('/bangumi/detail', arguments: item);
+              context.pushNamed('/info/', arguments: item);
             },
           );
         },
@@ -391,7 +391,6 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
     return WatchScaffold(
       title: '番剧搜索',
       child: Observer(

@@ -11,6 +11,7 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/sync_priority.dart';
 import 'package:kazumi/modules/collect/collect_sync_plan.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
+import 'package:kazumi/modules/collect/collect_module.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/collect/collect_library_view.dart';
 import 'package:kazumi/pages/collect/collect_sync_dialog.dart';

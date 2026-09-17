@@ -232,7 +232,6 @@ class _LogsPageState extends State<LogsPage> {
   }
 
   Widget _buildActionRow() {
-    final theme = Theme.of(context);
     return SizedBox(
       height: 44,
       child: Center(
