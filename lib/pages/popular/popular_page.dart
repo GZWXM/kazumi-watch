@@ -13,6 +13,8 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
 
 class PopularPage extends StatefulWidget {
   const PopularPage({
@@ -73,6 +75,55 @@ class _PopularPageState extends State<PopularPage> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    if (isRoundWatch(size)) {
+      return WatchScaffold(
+        title: '推荐',
+        child: Observer(
+          builder: (_) {
+            final list = (popularController.currentTag == '')
+                ? popularController.trendList
+                : popularController.bangumiList;
+            
+            if (popularController.isTimeOut) {
+              return Center(
+                child: BangumiMirrorErrorWidget(
+                  onRetry: () {
+                    if (popularController.trendList.isEmpty) {
+                      popularController.queryBangumiByTrend();
+                    } else {
+                      popularController.queryBangumiByTag();
+                    }
+                  },
+                  onSettingsReturned: () {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              );
+            }
+
+            return WatchBandList(
+              controller: scrollController,
+              pitch: 68,
+              itemCount: list.isNotEmpty ? list.length : 10,
+              itemBuilder: (context, index) {
+                final item = list.isNotEmpty ? list[index] : null;
+                if (item == null) {
+                  return const SizedBox(height: 60);
+                }
+                return WatchMediaRow(
+                  coverUrl: item.images.medium ?? '',
+                  title: item.title,
+                  meta: item.rating?.value.toString(),
+                  onTap: () => context.pushNamed('/info/', arguments: item),
+                );
+              },
+            );
+          },
+        ),
+      );
+    }
+
     return Scaffold(
       body: CustomScrollView(
         controller: scrollController,

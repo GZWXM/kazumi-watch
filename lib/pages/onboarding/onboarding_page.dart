@@ -7,6 +7,8 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:kazumi/pages/onboarding/steps/disclaimer_step.dart';
 import 'package:kazumi/pages/onboarding/steps/mirror_settings_step.dart';
@@ -17,6 +19,7 @@ import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/update/startup_update_check.dart';
+import 'package:kazumi/utils/device.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({
@@ -219,49 +222,168 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    if (isRoundWatch(size)) {
+      return PopScope(
         canPop: false,
         onPopInvokedWithResult: (bool didPop, Object? result) {
           if (!didPop) unawaited(_navigate(forward: false));
         },
-        child: Scaffold(
-          appBar: const SysAppBar(),
-          body: SafeArea(
-            top: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1184),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                      horizontal:
-                          MediaQuery.sizeOf(context).width < 600 ? 20 : 32),
-                  child: Column(
-                    children: [
-                      _OnboardingProgress(
-                        labels: _steps.map((step) => step.label).toList(),
-                        currentIndex: _currentIndex,
-                      ),
-                      Expanded(
-                        child: PageView(
-                          controller: _pageController,
-                          physics: _agreed
-                              ? null
-                              : const NeverScrollableScrollPhysics(),
-                          onPageChanged: (index) {
-                            setState(() => _currentIndex = index);
-                          },
-                          children: _steps.map(_buildStep).toList(),
-                        ),
-                      ),
-                      _buildBottomBar(context),
-                    ],
+        child: WatchScaffold(
+          title: _steps[_currentIndex].label,
+          leading: null,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 171),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: _agreed
+                          ? null
+                          : const NeverScrollableScrollPhysics(),
+                      onPageChanged: (index) {
+                        setState(() => _currentIndex = index);
+                      },
+                      children: _steps.map(_buildStep).toList(),
+                    ),
                   ),
-                ),
+                  _buildWatchDots(context),
+                  const SizedBox(height: 16),
+                  _buildWatchPrimaryButton(context),
+                  const SizedBox(height: 8),
+                  _buildWatchSecondaryButton(context),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
         ),
       );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) unawaited(_navigate(forward: false));
+      },
+      child: Scaffold(
+        appBar: const SysAppBar(),
+        body: SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1184),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal:
+                        MediaQuery.sizeOf(context).width < 600 ? 20 : 32),
+                child: Column(
+                  children: [
+                    _OnboardingProgress(
+                      labels: _steps.map((step) => step.label).toList(),
+                      currentIndex: _currentIndex,
+                    ),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: _agreed
+                            ? null
+                            : const NeverScrollableScrollPhysics(),
+                        onPageChanged: (index) {
+                          setState(() => _currentIndex = index);
+                        },
+                        children: _steps.map(_buildStep).toList(),
+                      ),
+                    ),
+                    _buildBottomBar(context),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWatchDots(BuildContext context) {
+    final theme = Theme.of(context);
+    return ExcludeSemantics(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_steps.length, (i) {
+          final isActive = i == _currentIndex;
+          return Container(
+            width: 6,
+            height: 6,
+            margin: EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.surfaceContainerHighest,
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildWatchPrimaryButton(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 160,
+      height: 44,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+        ),
+        onPressed: _installingBundled ? null : () => _navigate(forward: true),
+        child: _installingBundled
+            ? const LoadingIndicator(size: 20, semanticsLabel: '正在准备内置规则')
+            : Text(
+                _primaryLabel,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildWatchSecondaryButton(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 160,
+      height: 36,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(0, 0),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: theme.colorScheme.onSurfaceVariant,
+        ),
+        onPressed: _installingBundled
+            ? null
+            : _currentIndex == 0
+                ? () => exit(0)
+                : () => _navigate(forward: false),
+        child: Text(
+          _currentIndex == 0 ? '退出' : '上一步',
+          style: theme.textTheme.labelMedium,
+        ),
+      ),
+    );
+  }
 }
 
 class _SkipRulesDialog extends StatelessWidget {

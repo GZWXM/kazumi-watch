@@ -15,6 +15,10 @@ import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/collect/collect_library_view.dart';
 import 'package:kazumi/pages/collect/collect_sync_dialog.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 
 class CollectPage extends StatefulWidget {
   const CollectPage({
@@ -96,6 +100,36 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    
+    if (isRoundWatch(size)) {
+      return WatchScaffold(
+        title: '追番',
+        leading: IconButton(
+          icon: const Icon(Icons.sync_rounded),
+          onPressed: _syncDialogOpen || _pendingIds.isNotEmpty ? null : _sync,
+        ),
+        child: Observer(
+          builder: (context) {
+            final entries = collectController.collectibles.toList();
+            return WatchBandList(
+              pitch: 68,
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final item = entries[index];
+                return WatchMediaRow(
+                  coverUrl: item.images.medium ?? '',
+                  title: item.title,
+                  meta: _getCollectMeta(item),
+                  onTap: () => context.pushNamed('/info/', arguments: item),
+                );
+              },
+            );
+          },
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: SysAppBar(
         needTopOffset: false,
@@ -137,5 +171,12 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
         ),
       ),
     );
+  }
+
+  String? _getCollectMeta(BangumiItem item) {
+    // 简单映射：根据当前类型显示状态文本
+    // 实际逻辑可能更复杂，这里仅做占位以符合 WatchMediaRow 的 meta 参数要求
+    // 如果 item 有特定的 collect type 信息，可以在此提取
+    return null; 
   }
 }
