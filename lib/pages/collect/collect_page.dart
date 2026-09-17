@@ -18,7 +18,6 @@ import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
-import 'package:kazumi/bean/widget/circle_insets.dart';
 
 class CollectPage extends StatefulWidget {
   const CollectPage({
@@ -116,11 +115,12 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
               pitch: 68,
               itemCount: entries.length,
               itemBuilder: (context, index) {
-                final item = entries[index];
+                final entry = entries[index];
+                final item = entry.bangumiItem;
                 return WatchMediaRow(
-                  coverUrl: item.images.medium ?? '',
-                  title: item.title,
-                  meta: _getCollectMeta(item),
+                  coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+                  title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
+                  meta: _getCollectMeta(entry),
                   onTap: () => context.pushNamed('/info/', arguments: item),
                 );
               },
@@ -173,10 +173,15 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
     );
   }
 
-  String? _getCollectMeta(BangumiItem item) {
-    // 简单映射：根据当前类型显示状态文本
-    // 实际逻辑可能更复杂，这里仅做占位以符合 WatchMediaRow 的 meta 参数要求
-    // 如果 item 有特定的 collect type 信息，可以在此提取
-    return null; 
+  /// 收藏状态文案（对应 CollectType 1..5）
+  String? _getCollectMeta(CollectedBangumi entry) {
+    return switch (entry.type) {
+      1 => '在看',
+      2 => '想看',
+      3 => '搁置',
+      4 => '看过',
+      5 => '抛弃',
+      _ => null,
+    };
   }
 }

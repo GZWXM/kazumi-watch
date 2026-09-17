@@ -8,7 +8,6 @@ import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
-import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:kazumi/pages/onboarding/steps/disclaimer_step.dart';
 import 'package:kazumi/pages/onboarding/steps/mirror_settings_step.dart';

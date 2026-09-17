@@ -153,7 +153,6 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Widget _buildWatchLayout(BuildContext context) {
-    final theme = Theme.of(context);
     return Observer(builder: (context) {
       final loading = _controller.isLoading;
       final failed = _controller.isTimeOut;
@@ -236,9 +235,9 @@ class _TimelinePageState extends State<TimelinePage> {
       itemBuilder: (context, index) {
         final item = items[index];
         return WatchMediaRow(
-          coverUrl: item.images?.medium ?? '',
-          title: item.name,
-          meta: _showRating ? '评分 ${item.rating?.value}' : null,
+          coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+          title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
+          meta: _showRating ? '评分 ${item.ratingScore.toStringAsFixed(1)}' : null,
           onTap: () => context.pushNamed('/info/', arguments: item),
         );
       },

@@ -110,7 +110,6 @@ class _TimelineWeekSelector extends StatelessWidget {
         itemCount: 7,
         itemBuilder: (context, index) {
           final isSelected = selectedIndex == index;
-          final count = counts[index];
           
           return GestureDetector(
             onTap: () => onSelected?.call(index),

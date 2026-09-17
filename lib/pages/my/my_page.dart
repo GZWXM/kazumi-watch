@@ -3,7 +3,6 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
-import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:kazumi/pages/my/my_space_view.dart';

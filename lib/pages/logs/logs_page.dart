@@ -11,7 +11,6 @@ import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
-import 'package:kazumi/utils/watch_theme.dart';
 
 class LogsPage extends StatefulWidget {
   const LogsPage({super.key});

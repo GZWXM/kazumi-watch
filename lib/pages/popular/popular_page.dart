@@ -112,9 +112,9 @@ class _PopularPageState extends State<PopularPage> {
                   return const SizedBox(height: 60);
                 }
                 return WatchMediaRow(
-                  coverUrl: item.images.medium ?? '',
-                  title: item.title,
-                  meta: item.rating?.value.toString(),
+                  coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+                  title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
+                  meta: item.ratingScore > 0 ? item.ratingScore.toStringAsFixed(1) : null,
                   onTap: () => context.pushNamed('/info/', arguments: item),
                 );
               },
