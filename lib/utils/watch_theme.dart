@@ -7,7 +7,7 @@ ThemeData watchTheme(ThemeData base) {
   const double lineHeight = 1.3;
 
   // 辅助函数：创建文本样式
-  TextStyle _style(TextStyle? baseStyle, double size, FontWeight weight, {Color? color}) {
+  TextStyle styleOf(TextStyle? baseStyle, double size, FontWeight weight, {Color? color}) {
     return (baseStyle ?? const TextStyle()).copyWith(
       fontSize: size,
       fontWeight: weight,

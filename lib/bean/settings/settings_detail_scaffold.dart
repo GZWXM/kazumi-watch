@@ -53,8 +53,9 @@ class SettingsDetailScaffold extends StatelessWidget {
     if (isRoundWatch(mq.size)) {
       // Determine title string from widget if possible, else empty
       String titleStr = '';
-      if (title is Text) {
-        titleStr = title.data ?? '';
+      final titleWidget = title;        // 字段不能被 Dart 提升，先取局部变量再判型
+      if (titleWidget is Text) {
+        titleStr = titleWidget.data ?? '';
       }
 
       // Determine leading widget
@@ -68,7 +69,7 @@ class SettingsDetailScaffold extends StatelessWidget {
          );
       } else if (scope == null && (ModalRoute.of(context)?.impliesAppBarDismissal ?? false)) {
          watchLeading = IconButton(
-            onPressed: () { context.maybePop(); },
+            onPressed: () { Navigator.of(context).maybePop(); },
             icon: const Icon(Icons.arrow_back),
          );
       }

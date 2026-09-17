@@ -69,7 +69,6 @@ class ContentSection extends StatelessWidget {
     final isWatch = isRoundWatch(MediaQuery.sizeOf(context));
     // Watch 下：组内 padding 16->8, 组间间距 24->12 (这里体现为 Header 下方的 margin/padding 调整)
     final headerBottomPadding = isWatch ? 8.0 : 16.0;
-    final sectionGap = isWatch ? 12.0 : 24.0;
     
     // 对于非 group 模式，TonalCard 的 padding 也需要收敛
     final cardPadding = isWatch ? const EdgeInsets.all(8) : padding;

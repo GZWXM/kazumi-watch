@@ -88,7 +88,6 @@ class _SplitListRowState extends State<SplitListRow> {
                 theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface, fontSize: isWatch ? 13 : null),
             subtitleTextStyle: theme.textTheme.bodyMedium
                 ?.copyWith(color: colors.onSurfaceVariant, fontSize: isWatch ? 11 : null),
-            leadingAndTrailingFontSize: isWatch ? 20.0 : null, // Leading 图标 20
           ),
           child: _SplitRowScope(onPressChanged: _reportPress, child: child),
         ),
@@ -120,11 +119,6 @@ class SplitListGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWatch = isRoundWatch(MediaQuery.sizeOf(context));
-    // Watch 下组间间距可能也需要微调，但规范主要提到行高和图标。
-    // 保持 gap 为 4 通常在小屏上是合适的，除非特别要求。
-    // 这里暂不修改 gap，因为 splitListRowGap 是全局常量。
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
