@@ -236,7 +236,7 @@ class _KeyboardSettingsPageState extends State<KeyboardSettingsPage> {
             return handled ? KeyEventResult.handled : KeyEventResult.ignored;
           },
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             children: [
               Center(
                 child: ConstrainedBox(
