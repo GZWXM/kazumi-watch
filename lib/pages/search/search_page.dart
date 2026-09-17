@@ -5,6 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
+import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
@@ -12,6 +13,7 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/constants.dart';
+import 'package:kazumi/utils/date_time.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/search_parser.dart';
 
@@ -335,13 +337,13 @@ class _SearchPageState extends State<SearchPage> {
         itemBuilder: (context, index) {
           final item = items[index];
           final showRating = GStorage.getSetting(SettingsKeys.showRating);
-          String meta = '';
-          if (showRating && item.rating != null) {
-             meta = '评分 ${item.rating!.score.toStringAsFixed(1)}';
+          String? meta;
+          if (showRating && item.ratingScore > 0) {
+            meta = '评分 ${item.ratingScore.toStringAsFixed(1)}';
           }
           return WatchMediaRow(
-            coverUrl: item.images.medium ?? '',
-            title: item.name,
+            coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+            title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
             meta: meta,
             onTap: () {
               Modular.to.pushNamed('/bangumi/detail', arguments: item);
@@ -421,10 +423,10 @@ class _SearchPageState extends State<SearchPage> {
   
   String _filterSummary(SearchFilterState state) {
     final parts = <String>[];
+    if (state.keyword.isNotEmpty) parts.add('关键词: ${state.keyword}');
     if (state.tags.isNotEmpty) parts.add('标签: ${state.tags.join(', ')}');
-    if (state.year != null) parts.add('年份: ${state.year}');
-    if (state.status != null) parts.add('状态: ${state.status}');
-    if (state.type != null) parts.add('类型: ${state.type}');
+    if (state.season.isNotEmpty) parts.add('季度: ${state.season}');
+    if (state.weekdays.isNotEmpty) parts.add('放送日: ${state.weekdays.length} 天');
     return parts.join(' | ');
   }
 }
