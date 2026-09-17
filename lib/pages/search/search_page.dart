@@ -14,7 +14,6 @@ import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/date_time.dart';
-import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/search_parser.dart';
 
 part 'search_filter_sheet.dart';
