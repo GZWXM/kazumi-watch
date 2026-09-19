@@ -38,6 +38,21 @@ jobs:
         run: sed -i -e 's/-Wl,/-Wl,--build-id=none,/' ${{ steps.flutter-action.outputs.PUB-CACHE-PATH }}/hosted/pub.dev/jni-*/src/CMakeLists.txt || true
         shell: bash
 
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 未配置，本次仍用 debug 签名（每次安装都需先卸载）"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/kzw-release.p12
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=kzw-release\nstoreFile=kzw-release.p12\n' \
+            "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > android/key.properties
+          echo "✓ release 签名配置已就位"
+        shell: bash
+
       - name: Build APKs (32-bit + 64-bit)
         run: flutter build apk --release --split-per-abi
         shell: bash
