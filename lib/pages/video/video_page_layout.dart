@@ -29,8 +29,12 @@ class VideoPageLayout extends StatelessWidget {
       // 圆表屏不依赖 SafeArea，底部保留区由 shell 注入，圆边由内层组件用 CircleInsets 处理
       final roundWatch =
           isRoundWatch(MediaQuery.sizeOf(context));
-      final fillsWindow =
-          fullscreen || isPip || constraints.maxWidth > constraints.maxHeight;
+      // 圆表恒为满窗：播放页只有一个形态（照腕上哔哩 WristBilibili 的 PlayerActivity——
+      // 没有全屏/不全屏之分，就是一整块画面 + 浮层控件）。
+      final fillsWindow = fullscreen ||
+          isPip ||
+          roundWatch ||
+          constraints.maxWidth > constraints.maxHeight;
       final hasSidePanel = fillsWindow && !isPip && sidePanel != null;
       // 圆表全屏：只是把 16:9 的黑边条从 40% 屏高放到满高，看着"没区别"。
       // 全屏应当铺满 —— 用 BoxFit.cover 把画面按比例放大裁边填满整块圆屏，

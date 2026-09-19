@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/material.dart';
+
+import 'package:kazumi/utils/device.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kazumi/bean/widget/play_pause_icon.dart';
@@ -747,6 +749,10 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
       );
 
   Widget _buildFullscreenButton(bool compact) {
+    // 圆表：播放页恒为满屏，没有"不全屏"这一档，全屏开关没有意义
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return const SizedBox.shrink();
+    }
     if (videoPageController.isPip) {
       return compact ? const Text('    ') : const SizedBox.shrink();
     }
