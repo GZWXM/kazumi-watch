@@ -108,7 +108,7 @@ class _PopularPageState extends State<PopularPage> {
               itemCount: list.isNotEmpty ? list.length + 1 : 11,
               itemBuilder: (context, index) {
                 // index 0 为搜索入口，其余为番剧行
-                if (index == 0) return const _WatchSearchEntry();
+                if (index == 0) return const WatchSearchEntry();
                 final item = list.isNotEmpty ? list[index - 1] : null;
                 if (item == null) {
                   return const SizedBox(height: 60);
@@ -365,9 +365,10 @@ class _PopularPageState extends State<PopularPage> {
   }
 }
 
-/// 圆屏推荐页首行的搜索入口（仅跳转，不带输入框）
-class _WatchSearchEntry extends StatelessWidget {
-  const _WatchSearchEntry();
+/// 圆屏推荐页首行的搜索入口（仅跳转，不带输入框）。
+/// 公开是为了让渲染测试能直接渲这个真组件（见 test/watch_layout_render_test.dart）。
+class WatchSearchEntry extends StatelessWidget {
+  const WatchSearchEntry({super.key});
 
   @override
   Widget build(BuildContext context) {

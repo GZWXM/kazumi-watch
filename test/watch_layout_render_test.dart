@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/modules/my/watch_stats.dart';
 import 'package:kazumi/pages/my/my_space_view.dart';
+import 'package:kazumi/pages/popular/popular_page.dart';
 
 /// 圆屏界面渲染测试：把改过的页面渲成 PNG，供人工看几何（无需真机）。
 ///
@@ -69,24 +70,7 @@ void main() {
   });
 
   testWidgets('推荐页列表骨架：首位搜索槽位 = pitch 68', (tester) async {
-    // _WatchSearchEntry 是私有类，这里按它的真实尺寸复刻槽位（40 的条 + 28 底距 = 68）；
-    // 番剧行用等高占位块（真机是 WatchMediaRow：视觉高 60 + 间距 8 = 68），
-    // 不引入网络图片层，保证测试不依赖网络。
-    Widget searchSlot() => const SizedBox(
-          height: 68,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              height: 40,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Color(0xFF2E2E38),
-                  borderRadius: BorderRadius.all(Radius.circular(16)),
-                ),
-              ),
-            ),
-          ),
-        );
+    // 直接用真组件（WatchSearchEntry），不再手搓替身
     Widget mediaSlot(int i) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Container(
@@ -106,7 +90,7 @@ void main() {
         pitch: 68,
         itemCount: 6,
         itemBuilder: (context, index) =>
-            index == 0 ? searchSlot() : mediaSlot(index),
+            index == 0 ? const WatchSearchEntry() : mediaSlot(index),
       ),
     );
     await expectLater(find.byType(WatchBandList),
