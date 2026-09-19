@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/modules/my/watch_stats.dart';
@@ -32,7 +31,7 @@ class MySpaceView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 圆屏单列顺序行：规则置顶用主色行，其余走 WatchRow
+    // 圆屏单列顺序行：首行为统计卡，其余走 WatchRow
     final rows = <(String, IconData, MyDestination, String?)>[
       (
         '历史记录',
@@ -59,50 +58,29 @@ class MySpaceView extends StatelessWidget {
     return WatchBandList(
       key: const PageStorageKey('my-space'),
       pitch: 52,
+      // 首行统计卡高 64 ≠ pitch 52：必须报真实高度，否则它下面每一行的内缩都会算偏
+      extentOf: (index) => index == 0 ? 64.0 : 52.0,
       itemCount: rows.length + 1,
       itemBuilder: (context, index) {
-        // 首行：观看统计卡（高 64，两列 22/11）
+        // 首行：观看统计卡（高 64，两列）
         if (index == 0) {
-          return Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: CircleInsets.bandInset(CircleInsets.bodyTop),
-            ),
-            child: _WatchStatsPanel(
-              bangumiCount: stats.watchedBangumiCount,
-              episodeCount: stats.watchedEpisodeCount,
-            ),
+          return _WatchStatsPanel(
+            bangumiCount: stats.watchedBangumiCount,
+            episodeCount: stats.watchedEpisodeCount,
           );
         }
         final (title, icon, destination, meta) = rows[index - 1];
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: CircleInsets.bandInset(
-              CircleInsets.bodyTop + index * 52,
-            ),
-          ),
-          child: destination == MyDestination.history && index == 1
-              ? WatchRow(
-                  icon: icon,
-                  title: title,
-                  meta: meta,
-                  onTap: () => onOpen(destination),
-                )
-              : WatchRow(
-                  icon: icon,
-                  title: title,
-                  meta: meta,
-                  onTap: () => onOpen(destination),
-                ),
+        return WatchRow(
+          icon: icon,
+          title: title,
+          meta: meta,
+          onTap: () => onOpen(destination),
         );
       },
-      // 规则设置作为主色行插在统计卡之后
-      // WatchBandList 的 itemBuilder 无法拆分，这里通过 header 无法实现，
-      // 因此把主色行并入统计卡下方的独立首项由上层列表承担。
-      controller: null,
     );
   }
 
-  // 规则设置主色行单独暴露，供列表首行使用
+  // 规则设置主色行：保留公开接口（当前无调用方），供将来把「全部设置」收到首行时使用
   static Widget rulesPrimaryRow({
     required BuildContext context,
     required VoidCallback onTap,

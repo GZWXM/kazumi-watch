@@ -11,6 +11,7 @@ class WatchBandList extends StatefulWidget {
     required this.itemBuilder,
     this.pitch = 52.0,
     this.headerExtent = 0.0,
+    this.extentOf,
     this.controller,
   });
 
@@ -23,6 +24,11 @@ class WatchBandList extends StatefulWidget {
   /// 头部偏移量
   final double headerExtent;
   
+  /// 可选：第 index 个 item 的真实高度。
+  /// 列表里存在「高度不等于 pitch」的槽位时必须提供（例：首行统计卡 64 + 其余行 52），
+  /// 否则 yTop 的等距近似会偏移，这些行的圆屏内缩就会算错。默认全部按 pitch 计算。
+  final double Function(int index)? extentOf;
+
   /// 滚动控制器
   final ScrollController? controller;
 
@@ -66,7 +72,17 @@ class _WatchBandListState extends State<WatchBandList> {
             // 基础起点是 bodyTop (44) + headerExtent
             // 减去滚动偏移量 offset
             final scrollOffset = _controller.hasClients ? _controller.offset : 0.0;
-            final yTop = CircleInsets.bodyTop + widget.headerExtent + index * widget.pitch - scrollOffset;
+            // 默认按等距 pitch 近似；给了 extentOf 就按真实高度累加，
+            // 保证「首行高度 ≠ pitch」时，后面每一行的 yTop 仍然准确。
+            final extentOf = widget.extentOf;
+            var above = index * widget.pitch;
+            if (extentOf != null) {
+              above = 0;
+              for (var k = 0; k < index; k++) {
+                above += extentOf(k);
+              }
+            }
+            final yTop = CircleInsets.bodyTop + widget.headerExtent + above - scrollOffset;
             
             // 获取该 Y 坐标对应的带内缩
             final inset = CircleInsets.bandInset(yTop);

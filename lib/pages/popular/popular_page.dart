@@ -105,9 +105,11 @@ class _PopularPageState extends State<PopularPage> {
             return WatchBandList(
               controller: scrollController,
               pitch: 68,
-              itemCount: list.isNotEmpty ? list.length : 10,
+              itemCount: list.isNotEmpty ? list.length + 1 : 11,
               itemBuilder: (context, index) {
-                final item = list.isNotEmpty ? list[index] : null;
+                // index 0 为搜索入口，其余为番剧行
+                if (index == 0) return const _WatchSearchEntry();
+                final item = list.isNotEmpty ? list[index - 1] : null;
                 if (item == null) {
                   return const SizedBox(height: 60);
                 }
@@ -360,5 +362,54 @@ class _PopularPageState extends State<PopularPage> {
       popularController.setCurrentTag(selected);
       await popularController.queryBangumiByTag(type: 'init');
     }
+  }
+}
+
+/// 圆屏推荐页首行的搜索入口（仅跳转，不带输入框）
+class _WatchSearchEntry extends StatelessWidget {
+  const _WatchSearchEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // 槽位高度必须等于 WatchBandList 的 pitch(68)：yTop 按 index*pitch 推算，
+    // 矮槽位会让它下面每一行的内缩算偏（偏宽那侧会顶出圆边）。40 的条 + 28 底距 = 68。
+    return SizedBox(
+      height: 68,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          height: 40,
+          child: Material(
+            color: theme.colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => context.pushNamed('/search/'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '搜索番剧',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
