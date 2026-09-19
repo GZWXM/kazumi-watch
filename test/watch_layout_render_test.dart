@@ -66,6 +66,9 @@ void main() {
       debugPrint('[diag] WatchRow#$i width=${r.width.toStringAsFixed(1)}');
     }
     for (var y = 0.0; y <= 300; y += 20) {
+      // 列表用的新函数（以行中心为自变量）也打出来，方便和旧函数对照
+      debugPrint('[diag] bandInsetAtCenter(${y.toInt()})='
+          '${CircleInsets.bandInsetAtCenter(y).toStringAsFixed(1)}');
       debugPrint('[diag] bandInset(${y.toInt()})='
           '${CircleInsets.bandInset(y).toStringAsFixed(1)}');
     }
