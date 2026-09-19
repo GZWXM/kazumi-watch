@@ -181,16 +181,16 @@ class _SearchPageState extends State<SearchPage> {
     final theme = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       WatchRow(
-        icon: Icons.tune_rounded,
-        title: '按条件查找',
-        meta: '题材、时间等',
-        onTap: _showFilters,
-      ),
-      WatchRow(
         icon: Icons.travel_explore_rounded,
         title: '用番剧源搜索',
         meta: 'Bangumi 搜不了时用',
         onTap: () => context.pushNamed('/search/source'),
+      ),
+      WatchRow(
+        icon: Icons.tune_rounded,
+        title: '按条件查找',
+        meta: '题材、时间等',
+        onTap: _showFilters,
       ),
       const SizedBox(height: 16),
       Observer(builder: (_) {
@@ -310,10 +310,17 @@ class _SearchPageState extends State<SearchPage> {
     if (busy && allItems.isEmpty) {
        listChildren.add(const SliverToBoxAdapter(child: _SearchLoadingState()));
     } else if (allItems.isEmpty) {
-       listChildren.add(const SliverToBoxAdapter(
+       listChildren.add(SliverToBoxAdapter(
          child: GeneralEmptyState(
            icon: Icons.search_off_rounded,
            title: '没有找到番剧',
+           actions: [
+             StateActionButton.tonal(
+               onPressed: () => context.pushNamed('/search/source'),
+               icon: Icons.travel_explore_rounded,
+               text: '用番剧源搜索',
+             ),
+           ],
          ),
        ));
     } else if (items.isEmpty) {
