@@ -99,7 +99,10 @@ class _WatchBandListState extends State<WatchBandList> {
             // 进而触发 RenderFlex overflow。官方组件对应的是 min/max 夹紧，
             // 这里给"行宽不低于整屏 62%"的下限（可见区内的行根本碰不到这个夹紧）。
             final width = MediaQuery.sizeOf(context).width;
-            final inset = CircleInsets.bandInset(yTop).clamp(0.0, width * 0.19);
+            final raw = CircleInsets.bandInset(yTop);
+            // 19% 用实测宽度算（真机 233 → 44.3），再压一道 44 的硬上限做双保险：
+            // 任何情况下行宽都不低于约 62%，不会被压成一条线。
+            final inset = raw.clamp(0.0, width * 0.19 < 44.0 ? width * 0.19 : 44.0);
             
             final row = widget.itemBuilder(context, index);
 

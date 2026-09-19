@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/modules/my/watch_stats.dart';
 import 'package:kazumi/pages/my/my_space_view.dart';
@@ -24,8 +25,11 @@ void main() {
   });
 
   Future<void> pumpWatch(WidgetTester tester, Widget child) async {
+    // ⚠️ setSurfaceSize 给的是物理尺寸：dpr=2 时必须给 466，逻辑宽度才是 233。
+    // 早先这里给 233 + dpr2 → 逻辑只有 116.5，而 CircleInsets 的常量是按 233 写的，
+    // 几何全错位（渲染出来的行宽/内缩都不是真机的样子）。
     tester.view.devicePixelRatio = 2.0;
-    await tester.binding.setSurfaceSize(const Size(233, 233));
+    await tester.binding.setSurfaceSize(const Size(466, 466));
     addTearDown(() {
       tester.binding.setSurfaceSize(null);
       tester.view.resetDevicePixelRatio();
@@ -54,6 +58,22 @@ void main() {
     watchedBangumiCount: 9,
     downloadTaskCount: 2,
   );
+
+  testWidgets('诊断：逐行实际宽度 + bandInset 表（临时）', (tester) async {
+    await pumpWatch(tester, MySpaceView(stats: stats, onOpen: (_) {}));
+    final s = tester.getSize(find.byType(MySpaceView));
+    debugPrint('[diag] 逻辑尺寸=${s.width}x${s.height}');
+    final rows = find.byType(WatchRow);
+    for (var i = 0; i < rows.evaluate().length; i++) {
+      final r = tester.getSize(rows.at(i));
+      debugPrint('[diag] WatchRow#$i width=${r.width.toStringAsFixed(1)}');
+    }
+    for (var y = 0.0; y <= 300; y += 20) {
+      debugPrint('[diag] bandInset(${y.toInt()})='
+          '${CircleInsets.bandInset(y).toStringAsFixed(1)}');
+    }
+    tester.takeException(); // 这个用例只做诊断，溢出异常先吞掉
+  });
 
   testWidgets('我的页：统计卡 + 设置清单（首屏）', (tester) async {
     await pumpWatch(tester, MySpaceView(stats: stats, onOpen: (_) {}));
