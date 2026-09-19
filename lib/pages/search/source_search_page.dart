@@ -7,9 +7,11 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/search/plugin_search_module.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
+import 'package:kazumi/pages/video/video_playback_args.dart';
 import 'package:kazumi/request/core/network_exception.dart';
 import 'package:kazumi/services/plugin/rule_engine_models.dart';
 
@@ -60,8 +62,11 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   final ScrollController _listScroll = ScrollController();
 
   List<_SourceEntry> _entries = const <_SourceEntry>[];
-  List<({String title, String source})> _visibleResults =
-      const <({String title, String source})>[];
+  List<({String title, String source, Plugin plugin, String src})>
+      _visibleResults = const <({String title, String source, Plugin plugin, String src})>[];
+
+  /// 打开源条目时显示的提示（打开中 / 失败原因）
+  String? _noticeText;
   int _totalResultCount = 0;
   bool _truncated = false;
   bool _running = false;
@@ -204,14 +209,19 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   /// 把各源结果平铺成行（总上限 200，超出截断并在标注里说明）
   void _rebuildResults() {
-    final rows = <({String title, String source})>[];
+    final rows = <({String title, String source, Plugin plugin, String src})>[];
     var total = 0;
     for (final entry in _entries) {
       total += entry.items.length;
       for (final item in entry.items) {
         if (rows.length < _kMaxResultRows) {
           final name = item.name.trim();
-          rows.add((title: name.isEmpty ? '(无标题)' : name, source: entry.displayName));
+          rows.add((
+            title: name.isEmpty ? '(无标题)' : name,
+            source: entry.displayName,
+            plugin: entry.plugin,
+            src: item.src,
+          ));
         }
       }
     }
@@ -227,9 +237,12 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     return '$done/${_entries.length} 完成';
   }
 
-  String get _resultLabel => _truncated
-      ? '显示 ${_visibleResults.length} 条 · 已截断'
-      : '共 $_totalResultCount 条';
+  String get _resultLabel {
+    if (_noticeText != null) return _noticeText!;
+    return _truncated
+        ? '显示 ${_visibleResults.length} 条 · 已截断'
+        : '共 $_totalResultCount 条';
+  }
 
   void _writeInput(String value) {
     _input.value = TextEditingValue(
@@ -381,9 +394,58 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
         return WatchRow(
           title: row.title,
           meta: _shortenSource(row.source),
+          onTap: () => _openItem(row.plugin, row.title, row.src),
         );
       },
     );
+  }
+
+  /// 点结果 → 取该源的线路 → 进播放页。
+  ///
+  /// 源搜索只有「源 + 条目链接」，没有 Bangumi 条目 id：这里用一个空壳
+  /// [BangumiItem] 顶上，代价是弹幕匹配与观看记录会退化（都是按 id 走的）。
+  Future<void> _openItem(Plugin plugin, String title, String src) async {
+    if (src.trim().isEmpty) {
+      setState(() => _noticeText = '这条没有可用的链接');
+      return;
+    }
+    setState(() => _noticeText = '打开中…');
+    try {
+      final roads = await plugin
+          .queryChapterRoads(src)
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      if (roads.isEmpty) {
+        setState(() => _noticeText = '该源没有可用线路');
+        return;
+      }
+      setState(() => _noticeText = null);
+      context.pushNamed('/video/', arguments: OnlineVideoPlaybackArgs(
+            bangumiItem: BangumiItem(
+              id: 0,
+              type: 2,
+              name: title,
+              nameCn: title,
+              summary: '',
+              airDate: '',
+              airWeekday: 0,
+              rank: 0,
+              images: const {},
+              tags: const [],
+              alias: const [],
+              ratingScore: 0,
+              votes: 0,
+              votesCount: const [],
+              info: '',
+            ),
+            plugin: plugin,
+            title: title,
+            src: src,
+            roads: roads,
+          ));
+    } catch (error) {
+      if (mounted) setState(() => _noticeText = '打开失败：$error');
+    }
   }
 
   /// meta 区无宽度约束，源名过长会顶爆行 → 收敛到 8 字
