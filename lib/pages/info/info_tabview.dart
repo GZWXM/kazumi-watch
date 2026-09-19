@@ -15,6 +15,7 @@ import 'package:kazumi/modules/characters/character_item.dart';
 import 'package:kazumi/modules/staff/staff_item.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
 
 class InfoTabView extends StatefulWidget {
   const InfoTabView({
@@ -76,17 +77,19 @@ class _InfoTabViewState extends State<InfoTabView> {
   bool fullTag = false;
 
   Widget get infoBody {
+    final screenSize = MediaQuery.sizeOf(context);
+    final roundWatch = isRoundWatch(screenSize);
+    final contentWidth =
+        roundWatch ? screenSize.width : (screenSize.width > maxWidth ? maxWidth : screenSize.width - 32);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SizedBox(
-          width: MediaQuery.sizeOf(context).width > maxWidth
-              ? maxWidth
-              : MediaQuery.sizeOf(context).width - 32,
+          width: contentWidth,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('简介', style: TextStyle(fontSize: 18)),
+              Text('简介', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               LayoutBuilder(builder: (context, constraints) {
                 final span = TextSpan(text: widget.bangumiItem.summary);
@@ -94,15 +97,14 @@ class _InfoTabViewState extends State<InfoTabView> {
                     TextPainter(text: span, textDirection: TextDirection.ltr);
                 tp.layout(maxWidth: constraints.maxWidth);
                 final numLines = tp.computeLineMetrics().length;
-                if (numLines > 7) {
+                // 圆屏行宽更窄，截断高度从 120 收到 64
+                if (numLines > (roundWatch ? 4 : 7)) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       SizedBox(
-                        height: fullIntro ? null : 120,
-                        width: MediaQuery.sizeOf(context).width > maxWidth
-                            ? maxWidth
-                            : MediaQuery.sizeOf(context).width - 32,
+                        height: fullIntro ? null : (roundWatch ? 64 : 120),
+                        width: contentWidth,
                         child: SelectableText(
                           widget.bangumiItem.summary,
                           textAlign: TextAlign.start,
@@ -133,7 +135,7 @@ class _InfoTabViewState extends State<InfoTabView> {
                 }
               }),
               const SizedBox(height: 16),
-              Text('标签', style: TextStyle(fontSize: 18)),
+              Text('标签', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8.0,
@@ -146,7 +148,7 @@ class _InfoTabViewState extends State<InfoTabView> {
                     return ActionChip(
                       label: Text(
                         '更多 +',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: Theme.of(context).colorScheme.primary),
                       ),
                       onPressed: () {
@@ -160,10 +162,11 @@ class _InfoTabViewState extends State<InfoTabView> {
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${widget.bangumiItem.tags[index].name} '),
+                        Text('${widget.bangumiItem.tags[index].name} ',
+                            style: Theme.of(context).textTheme.labelMedium),
                         Text(
                           '${widget.bangumiItem.tags[index].count}',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
                               color: Theme.of(context).colorScheme.primary),
                         ),
                       ],
@@ -192,9 +195,6 @@ class _InfoTabViewState extends State<InfoTabView> {
           ),
           key: const PageStorageKey<String>('关联'),
           slivers: <Widget>[
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
             SliverLayoutBuilder(
               builder: (context, constraints) {
                 if (widget.relationsQueryTimeout) {
@@ -223,11 +223,14 @@ class _InfoTabViewState extends State<InfoTabView> {
                         .toDouble();
                 final contentWidth =
                     constraints.crossAxisExtent - horizontalPadding * 2;
-                final crossAxisCount = contentWidth >= 840
-                    ? 3
-                    : contentWidth >= 560
-                        ? 2
-                        : 1;
+                // 圆屏禁用多列网格，关联条目固定单列
+                final crossAxisCount = isRoundWatch(MediaQuery.sizeOf(context))
+                    ? 1
+                    : contentWidth >= 840
+                        ? 3
+                        : contentWidth >= 560
+                            ? 2
+                            : 1;
                 final showSkeleton =
                     !widget.relationsHasLoaded || widget.relationsIsLoading;
                 final itemCount =
@@ -279,21 +282,23 @@ class _InfoTabViewState extends State<InfoTabView> {
   }
 
   Widget get infoBodyBone {
+    final screenSize = MediaQuery.sizeOf(context);
+    final contentWidth = isRoundWatch(screenSize)
+        ? screenSize.width
+        : (screenSize.width > maxWidth ? maxWidth : screenSize.width - 32);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SizedBox(
-          width: MediaQuery.sizeOf(context).width > maxWidth
-              ? maxWidth
-              : MediaQuery.sizeOf(context).width - 32,
+          width: contentWidth,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Skeletonizer.zone(child: Bone.text(fontSize: 18, width: 50)),
+              Skeletonizer.zone(child: Bone.text(fontSize: 15, width: 50)),
               const SizedBox(height: 8),
               Skeletonizer.zone(child: Bone.multiText(lines: 7)),
               const SizedBox(height: 16),
-              Skeletonizer.zone(child: Bone.text(fontSize: 18, width: 50)),
+              Skeletonizer.zone(child: Bone.text(fontSize: 15, width: 50)),
               const SizedBox(height: 8),
               if (widget.isLoading)
                 Skeletonizer.zone(
@@ -320,9 +325,6 @@ class _InfoTabViewState extends State<InfoTabView> {
           ),
           key: PageStorageKey<String>('制作人员'),
           slivers: <Widget>[
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
             SliverLayoutBuilder(builder: (context, _) {
               if (widget.staffList.isNotEmpty) {
                 return SliverList.builder(
@@ -365,19 +367,11 @@ class _InfoTabViewState extends State<InfoTabView> {
               return SliverList.builder(
                 itemCount: 8,
                 itemBuilder: (context, _) {
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: SizedBox(
-                      width: MediaQuery.sizeOf(context).width > maxWidth
-                          ? maxWidth
-                          : MediaQuery.sizeOf(context).width - 32,
-                      child: Skeletonizer.zone(
-                        child: ListTile(
-                          leading: Bone.circle(size: 36),
-                          title: Bone.text(width: 100),
-                          subtitle: Bone.text(width: 80),
-                        ),
-                      ),
+                  // 圆屏骨架改用 WatchRow，与真实行高一致
+                  return Skeletonizer.zone(
+                    child: WatchRow(
+                      icon: Icons.person_outline_rounded,
+                      title: '加载中',
                     ),
                   );
                 },
@@ -398,9 +392,6 @@ class _InfoTabViewState extends State<InfoTabView> {
           ),
           key: PageStorageKey<String>('角色'),
           slivers: <Widget>[
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
             SliverLayoutBuilder(builder: (context, _) {
               if (widget.characterList.isNotEmpty) {
                 return SliverList.builder(
@@ -443,19 +434,11 @@ class _InfoTabViewState extends State<InfoTabView> {
               return SliverList.builder(
                 itemCount: 4,
                 itemBuilder: (context, _) {
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: SizedBox(
-                      width: MediaQuery.sizeOf(context).width > maxWidth
-                          ? maxWidth
-                          : MediaQuery.sizeOf(context).width - 32,
-                      child: Skeletonizer.zone(
-                        child: ListTile(
-                          leading: Bone.circle(size: 36),
-                          title: Bone.text(width: 100),
-                          subtitle: Bone.text(width: 80),
-                        ),
-                      ),
+                  // 圆屏骨架改用 WatchRow，与真实行高一致
+                  return Skeletonizer.zone(
+                    child: WatchRow(
+                      icon: Icons.person_outline_rounded,
+                      title: '加载中',
                     ),
                   );
                 },
@@ -473,7 +456,6 @@ class _InfoTabViewState extends State<InfoTabView> {
       controller: widget.tabController,
       children: [
         Builder(
-          // Resolve the overlap handle inside the NestedScrollView.
           builder: (BuildContext context) {
             return CustomScrollView(
               scrollBehavior: const ScrollBehavior().copyWith(
@@ -481,10 +463,6 @@ class _InfoTabViewState extends State<InfoTabView> {
               ),
               key: PageStorageKey<String>('概览'),
               slivers: <Widget>[
-                SliverOverlapInjector(
-                  handle:
-                      NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-                ),
                 SliverToBoxAdapter(
                   child: SafeArea(
                     top: false,

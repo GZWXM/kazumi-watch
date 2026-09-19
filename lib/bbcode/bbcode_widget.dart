@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:kazumi/utils/device.dart';
 import 'package:antlr4/antlr4.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:kazumi/bean/widget/image_preview.dart';
@@ -14,11 +15,9 @@ class BBCodeWidget extends StatefulWidget {
   const BBCodeWidget({
     super.key,
     required this.bbcode,
-    this.textScaler = TextScaler.noScaling,
   });
 
   final String bbcode;
-  final TextScaler textScaler;
 
   @override
   State<StatefulWidget> createState() => _BBCodeWidgetState();
@@ -74,7 +73,6 @@ class _BBCodeWidgetState extends State<BBCodeWidget> {
     return Wrap(
       children: [
         RichText(
-          textScaler: widget.textScaler,
           text: TextSpan(
             style: DefaultTextStyle.of(context).style,
             children: bbcodeBaseListener.bbcode.map((e) {
@@ -88,6 +86,12 @@ class _BBCodeWidgetState extends State<BBCodeWidget> {
                             : (e.color != null)
                                 ? _parseColor(e.color!)
                                 : null;
+                
+                double fontSize = e.size.toDouble();
+                if (isRoundWatch(MediaQuery.of(context).size)) {
+                  fontSize = e.size <= 0 ? 13.0 : e.size.clamp(10.0, 15.0).toDouble();
+                }
+
                 return TextSpan(
                   text: e.text,
                   mouseCursor: (e.link != null || e.masked)
@@ -114,7 +118,7 @@ class _BBCodeWidgetState extends State<BBCodeWidget> {
                       if (e.strikeThrough) TextDecoration.lineThrough,
                     ]),
                     decorationColor: textColor,
-                    fontSize: e.size.toDouble(),
+                    fontSize: fontSize,
                     color: textColor,
                     backgroundColor:
                         (!_isVisible && e.masked) ? Color(0xFF555555) : null,
@@ -142,6 +146,7 @@ class _BBCodeWidgetState extends State<BBCodeWidget> {
                         errorWidget: (context, error, stackTrace) {
                           return const Text('.');
                         },
+                        width: 110, // Prevent overflow on round watch
                       ),
                     ),
                   ),

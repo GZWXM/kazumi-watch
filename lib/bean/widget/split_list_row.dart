@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:kazumi/bean/widget/tonal_card.dart';
+import 'package:kazumi/utils/device.dart';
 
 const double splitListOuterRadius = tonalCardRadius;
 const double splitListInnerRadius = 4;
@@ -46,6 +47,13 @@ class _SplitListRowState extends State<SplitListRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final isWatch = isRoundWatch(MediaQuery.sizeOf(context));
+    
+    // Watch 下行高压到 52 (通过限制 ListTile 的最小高度或内容区域实现，这里主要调整 padding 和图标大小来适应视觉高度)
+    // 标准 ListTile 高度约 56-72。Watch 下需要更紧凑。
+    final horizontalPadding = isWatch ? 12.0 : 16.0;
+    final verticalPadding = isWatch ? 4.0 : 8.0; // 进一步压缩垂直空间以逼近 52 总高
+    
     final child = widget.onTap == null
         ? widget.child
         : InkWell(
@@ -53,6 +61,7 @@ class _SplitListRowState extends State<SplitListRow> {
             onHighlightChanged: _reportPress,
             child: widget.child,
           );
+          
     // Animate color as well as shape; Material alone snaps color changes.
     return AnimatedContainer(
       duration: MediaQuery.disableAnimationsOf(context)
@@ -74,11 +83,11 @@ class _SplitListRowState extends State<SplitListRow> {
         child: ListTileTheme(
           data: theme.listTileTheme.copyWith(
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
             titleTextStyle:
-                theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface),
+                theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface, fontSize: isWatch ? 13 : null),
             subtitleTextStyle: theme.textTheme.bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant),
+                ?.copyWith(color: colors.onSurfaceVariant, fontSize: isWatch ? 11 : null),
           ),
           child: _SplitRowScope(onPressChanged: _reportPress, child: child),
         ),

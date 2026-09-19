@@ -5,6 +5,7 @@ import 'package:kazumi/request/core/network_config.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/http_headers.dart';
+import 'package:kazumi/utils/bangumi_mirror_credentials.dart';
 
 class DioFactory {
   DioFactory._();
@@ -95,8 +96,11 @@ class _BangumiMirrorInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // 没凭据时镜像必被 401 拒（见 bangumi_mirror_credentials.dart 的说明），
+    // 此时直接走官方接口，别把请求改写到镜像。
     final enableBangumiProxy =
-        GStorage.getSetting(SettingsKeys.enableBangumiProxy);
+        GStorage.getSetting(SettingsKeys.enableBangumiProxy) &&
+            bangumiMirrorAvailable;
     if (!enableBangumiProxy) {
       handler.next(options);
       return;

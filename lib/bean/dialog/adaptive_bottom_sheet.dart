@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-
 import 'package:kazumi/utils/device.dart';
 
 BoxConstraints _adaptiveBottomSheetConstraints(
@@ -14,12 +13,10 @@ BoxConstraints _adaptiveBottomSheetConstraints(
 }) {
   final size = MediaQuery.sizeOf(context);
   final isLandscape = size.width > size.height;
-  final isLargeScreen = size.shortestSide >= 600;
   final useFullWidth = !isLandscape && size.width < 600;
   final maxWidth =
       useFullWidth ? size.width : math.min(size.width * 0.72, 640.0);
-  final useExpandedLandscapeHeight =
-      isLandscape && !isDesktop() && !isLargeScreen;
+  final useExpandedLandscapeHeight = isLandscape && size.height < 600;
   final maxHeight = size.height *
       (useExpandedLandscapeHeight
           ? compactLandscapeMaxHeightFactor
@@ -38,6 +35,34 @@ Future<T?> showAdaptiveBottomSheet<T>({
   double compactLandscapeMaxHeightFactor = 0.9,
   bool useRootNavigator = false,
 }) {
+  final size = MediaQuery.sizeOf(context);
+  
+  // Watch branch: Use centered dialog instead of bottom sheet
+  if (isRoundWatch(size)) {
+    return showDialog<T>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 170,
+            minHeight: 140,
+            maxHeight: 190,
+          ),
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.zero,
+              child: Builder(builder: builder),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   return _showMaterialBottomSheet<T>(
     context: context,
     builder: builder,
