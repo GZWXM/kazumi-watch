@@ -362,40 +362,40 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
     final entryCount = _entries.length;
     final resultCount = _visibleResults.length;
-    // 行布局（每行高度恒等于 pitch 52）：
-    //   0            → 源状态标签
-    //   1..n         → 各源状态行
-    //   n+1          → 结果标签
-    //   n+2..n+1+m   → 结果行
+    // 行布局（每行高度恒等于 pitch 52）—— 结果在前、源状态在后：
+    //   0            → 结果标签
+    //   1..m         → 结果行（可直接点进去播放）
+    //   m+1          → 源状态标签
+    //   m+2..m+1+n   → 各源状态行（诊断用，放后面）
     return WatchBandList(
       pitch: _kRowPitch,
       headerExtent: _kHeaderExtent,
       controller: _listScroll,
-      itemCount: 2 + entryCount + resultCount,
+      itemCount: 2 + resultCount + entryCount,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return WatchRow(
-            icon: Icons.traffic_rounded,
-            title: '源状态',
-            meta: _statusLabel,
-          );
-        }
-        if (index <= entryCount) {
-          return _statusRow(_entries[index - 1]);
-        }
-        if (index == entryCount + 1) {
           return WatchRow(
             icon: Icons.movie_filter_rounded,
             title: '结果',
             meta: _resultLabel,
           );
         }
-        final row = _visibleResults[index - entryCount - 2];
-        return WatchRow(
-          title: row.title,
-          meta: _shortenSource(row.source),
-          onTap: () => _openItem(row.plugin, row.title, row.src),
-        );
+        if (index <= resultCount) {
+          final row = _visibleResults[index - 1];
+          return WatchRow(
+            title: row.title,
+            meta: _shortenSource(row.source),
+            onTap: () => _openItem(row.plugin, row.title, row.src),
+          );
+        }
+        if (index == resultCount + 1) {
+          return WatchRow(
+            icon: Icons.traffic_rounded,
+            title: '源状态',
+            meta: _statusLabel,
+          );
+        }
+        return _statusRow(_entries[index - resultCount - 2]);
       },
     );
   }
