@@ -32,6 +32,10 @@ class VideoPageLayout extends StatelessWidget {
       final fillsWindow =
           fullscreen || isPip || constraints.maxWidth > constraints.maxHeight;
       final hasSidePanel = fillsWindow && !isPip && sidePanel != null;
+      // 圆表全屏：只是把 16:9 的黑边条从 40% 屏高放到满高，看着"没区别"。
+      // 全屏应当铺满 —— 用 BoxFit.cover 把画面按比例放大裁边填满整块圆屏，
+      // 否则方形屏上永远是一条吃不满的横条。
+      final watchFill = roundWatch && fillsWindow;
       final content = Stack(
         alignment: Alignment.centerRight,
         children: [
@@ -48,14 +52,28 @@ class VideoPageLayout extends StatelessWidget {
                               MediaQuery.sizeOf(context).height * 0.40)
                           : null),
                   width: double.infinity,
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Builder(
-                        builder: (context) => playerBuilder(context, (
-                              fillsWindow: fillsWindow,
-                              hasSidePanel: hasSidePanel
-                            ))),
-                  ),
+                  child: watchFill
+                      ? FittedBox(
+                          fit: BoxFit.cover,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: 16,
+                            height: 9,
+                            child: Builder(
+                                builder: (context) => playerBuilder(context, (
+                                      fillsWindow: fillsWindow,
+                                      hasSidePanel: hasSidePanel
+                                    ))),
+                          ),
+                        )
+                      : AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Builder(
+                              builder: (context) => playerBuilder(context, (
+                                    fillsWindow: fillsWindow,
+                                    hasSidePanel: hasSidePanel
+                                  ))),
+                        ),
                 ),
               ),
               if (!fillsWindow) Expanded(child: tabs),
