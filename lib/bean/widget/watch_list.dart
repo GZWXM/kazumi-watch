@@ -93,8 +93,13 @@ class _WatchBandListState extends State<WatchBandList> {
             }
             final yTop = CircleInsets.bodyTop + widget.headerExtent + above - scrollOffset;
             
-            // 获取该 Y 坐标对应的带内缩
-            final inset = CircleInsets.bandInset(yTop);
+            // 获取该 Y 坐标对应的带内缩。
+            // 夹紧：yTop 落在圆最窄处（甚至屏外，ListView 的 cacheExtent 会构建
+            // 视口外的项）时，bandInset 会算出接近半屏的内缩 —— 行被压成一条线，
+            // 进而触发 RenderFlex overflow。官方组件对应的是 min/max 夹紧，
+            // 这里给"行宽不低于整屏 62%"的下限（可见区内的行根本碰不到这个夹紧）。
+            final width = MediaQuery.sizeOf(context).width;
+            final inset = CircleInsets.bandInset(yTop).clamp(0.0, width * 0.19);
             
             final row = widget.itemBuilder(context, index);
 
