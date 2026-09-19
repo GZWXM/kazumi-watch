@@ -186,6 +186,12 @@ class _SearchPageState extends State<SearchPage> {
         meta: '题材、时间等',
         onTap: _showFilters,
       ),
+      WatchRow(
+        icon: Icons.travel_explore_rounded,
+        title: '用番剧源搜索',
+        meta: 'Bangumi 搜不了时用',
+        onTap: () => context.pushNamed('/search/source'),
+      ),
       const SizedBox(height: 16),
       Observer(builder: (_) {
         final histories = _controller.searchHistories.toList();
