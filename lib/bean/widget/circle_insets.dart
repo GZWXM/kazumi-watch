@@ -37,4 +37,12 @@ class CircleInsets {
   static double bandInset(double yTop) {
     return insetOf(Rect.fromLTWH(0, yTop, screen, 20));
   }
+
+  /// 以**行中心** Y 为自变量的内缩（对称）。
+  /// [bandInset] 是拿 [yTop, yTop+20] 两边缘里较窄的弦算的，于是有效判定位置
+  /// 比行中心偏上约 10dp —— 表现为"最大的那行不在正中、而是偏上，且是一片平台"。
+  /// 这个版本直接对中心取弦：峰值正好落在屏心，上下对称。
+  static double bandInsetAtCenter(double centerY) {
+    return math.max(12, (screen - _chord(centerY)) / 2 + m);
+  }
 }
