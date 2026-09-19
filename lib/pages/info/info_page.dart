@@ -408,8 +408,8 @@ class _InfoPageState extends State<InfoPage>
     );
   }
 
-  // 滚动末项：追番/外链两个 40dp tonal 圆钮 + 「开始观看」整带胶囊
-  Widget _buildWatchBottomActions() {
+  // 滚动末项：追番/外链两个 40dp tonal 圆钮（次级操作，留在列表末尾）
+  Widget _buildWatchSecondaryActions() {
     final theme = Theme.of(context);
     return Column(
       children: [
@@ -441,28 +441,34 @@ class _InfoPageState extends State<InfoPage>
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: 160,
-          height: 44,
-          child: FilledButton(
-            onPressed: _openSourceSheet,
-            style: FilledButton.styleFrom(
-              shape: const StadiumBorder(),
-              padding: EdgeInsets.zero,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.play_arrow_rounded, size: 22),
-                const SizedBox(width: 4),
-                Text('开始观看', style: theme.textTheme.labelLarge),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+
+  /// 常驻播放入口（贴下沿、圆的安全区内）。
+  /// 原来是列表末项 —— 得滑到整页最底才看得见，重构前那版是常驻的
+  /// floatingActionButton，等于被改没了。官方 Wear 对这种主操作的推荐位置
+  /// 同样是固定槽位（edgeButton），不要放进滚动列表。
+  Widget _buildWatchPlayButton() {
+    return SizedBox(
+      width: 160,
+      height: 44,
+      child: FilledButton(
+        onPressed: _openSourceSheet,
+        style: FilledButton.styleFrom(
+          shape: const StadiumBorder(),
+          padding: EdgeInsets.zero,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.play_arrow_rounded, size: 22),
+            const SizedBox(width: 4),
+            Text('开始观看', style: Theme.of(context).textTheme.labelLarge),
+          ],
+        ),
+      ),
     );
   }
 
@@ -476,50 +482,61 @@ class _InfoPageState extends State<InfoPage>
         },
         icon: const Icon(Icons.arrow_back),
       ),
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Observer(builder: (context) {
-              return _buildWatchHeader();
-            }),
+      child: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+            SliverToBoxAdapter(
+              child: Observer(builder: (context) {
+                return _buildWatchHeader();
+              }),
+            ),
+            SliverToBoxAdapter(
+              child: _buildWatchTabChips(),
+            ),
+            // TabBarView 保留，占满剩余视口高度
+            SliverFillRemaining(
+              hasScrollBody: true,
+              child: Observer(builder: (context) {
+                final showBangumiInfoSkeleton = _isShowingBangumiInfoSkeleton;
+                return InfoTabView(
+                  tabController: infoTabController,
+                  bangumiItem: infoController.bangumiItem,
+                  commentsQueryTimeout: commentsQueryTimeout,
+                  commentsHasLoaded: commentsHasLoaded,
+                  charactersQueryTimeout: charactersQueryTimeout,
+                  charactersIsEmpty: charactersIsEmpty,
+                  staffQueryTimeout: staffQueryTimeout,
+                  staffIsEmpty: staffIsEmpty,
+                  loadMoreComments: loadMoreComments,
+                  loadCharacters: loadCharacters,
+                  loadStaff: loadStaff,
+                  commentsList:
+                      infoController.commentsList.toList(growable: false),
+                  commentsIsLoading: commentsIsLoading,
+                  onWriteReview: _openReviewEditor,
+                  characterList: infoController.characterList,
+                  staffList: infoController.staffList,
+                  relationList: infoController.relationList,
+                  relationsIsLoading: infoController.relationsIsLoading,
+                  relationsQueryTimeout: infoController.relationsQueryTimeout,
+                  relationsHasLoaded: infoController.relationsHasLoaded,
+                  loadRelations: loadRelations,
+                  isLoading: showBangumiInfoSkeleton,
+                );
+              }),
+            ),
+              SliverToBoxAdapter(
+                child: _buildWatchSecondaryActions(),
+              ),
+            ],
           ),
-          SliverToBoxAdapter(
-            child: _buildWatchTabChips(),
-          ),
-          // TabBarView 保留，占满剩余视口高度
-          SliverFillRemaining(
-            hasScrollBody: true,
-            child: Observer(builder: (context) {
-              final showBangumiInfoSkeleton = _isShowingBangumiInfoSkeleton;
-              return InfoTabView(
-                tabController: infoTabController,
-                bangumiItem: infoController.bangumiItem,
-                commentsQueryTimeout: commentsQueryTimeout,
-                commentsHasLoaded: commentsHasLoaded,
-                charactersQueryTimeout: charactersQueryTimeout,
-                charactersIsEmpty: charactersIsEmpty,
-                staffQueryTimeout: staffQueryTimeout,
-                staffIsEmpty: staffIsEmpty,
-                loadMoreComments: loadMoreComments,
-                loadCharacters: loadCharacters,
-                loadStaff: loadStaff,
-                commentsList:
-                    infoController.commentsList.toList(growable: false),
-                commentsIsLoading: commentsIsLoading,
-                onWriteReview: _openReviewEditor,
-                characterList: infoController.characterList,
-                staffList: infoController.staffList,
-                relationList: infoController.relationList,
-                relationsIsLoading: infoController.relationsIsLoading,
-                relationsQueryTimeout: infoController.relationsQueryTimeout,
-                relationsHasLoaded: infoController.relationsHasLoaded,
-                loadRelations: loadRelations,
-                isLoading: showBangumiInfoSkeleton,
-              );
-            }),
-          ),
-          SliverToBoxAdapter(
-            child: _buildWatchBottomActions(),
+          // 常驻的「开始观看」，贴下沿、留在圆的安全区内
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 44,
+            child: Center(child: _buildWatchPlayButton()),
           ),
         ],
       ),
