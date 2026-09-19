@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -20,6 +21,10 @@ class DisplayModeService {
         await _attempt(() => windowManager.setFullScreen(fullscreen));
         return;
       }
+
+      // 圆表：屏幕是固定的方形圆屏，请求横屏会把整个 UI 转 90°，而 isRoundWatch 的
+      // 判定（|w-h| ≤ w*0.12）随即失效 → 之后所有页面都会走手机分支。方向交给系统。
+      if (_isRoundWatchScreen()) return;
 
       // Restore system orientation on exit, including an existing landscape.
       await _attempt(() => SystemChrome.setPreferredOrientations(
@@ -74,6 +79,17 @@ class DisplayModeService {
       if (identical(_pendingSystemBars, request)) _pendingSystemBars = null;
     });
     return _pendingSystemBars = request;
+  }
+
+  /// 从当前视图推逻辑尺寸判断圆表（与 utils/device.dart 的 isRoundWatch 同口径）。
+  /// 放在这里是为了不依赖 BuildContext。
+  static bool _isRoundWatchScreen() {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return false;
+    final view = views.first;
+    final size = view.physicalSize / view.devicePixelRatio;
+    return size.shortestSide < 300 &&
+        (size.width - size.height).abs() <= size.width * 0.12;
   }
 
   static Future<void> _attempt(Future<void> Function() operation) async {
