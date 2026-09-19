@@ -11,13 +11,11 @@ import 'package:kazumi/modules/search/plugin_search_module.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/request/core/network_exception.dart';
-import 'package:kazumi/services/plugin/rule_engine_models.dart'
-    show RuleCancelToken;
+import 'package:kazumi/services/plugin/rule_engine_models.dart';
 
 /// 手表端「源搜索」最小验证切片：
 /// 输入关键词 → 并发查询所有已安装番剧源（上限 4、单源 15s 超时）→
 /// 展示【每源状态】+【结果平铺行】。只做验证，不做点击跳转。
-library;
 
 const int _kMaxConcurrent = 4;
 const Duration _kSourceTimeout = Duration(seconds: 15);
