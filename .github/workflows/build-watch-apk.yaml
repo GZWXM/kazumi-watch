@@ -59,7 +59,7 @@ jobs:
 
   goldens:
     # 把界面渲染成 PNG（无设备），用于检查圆屏适配
-    name: Render UI goldens
+    name: Render watch UI goldens
     runs-on: ubuntu-latest
     steps:
       - name: Clone repository
@@ -83,7 +83,7 @@ jobs:
         shell: bash
 
       - name: Render goldens
-        run: flutter test --update-goldens test/curved_nav_bar_golden_test.dart
+        run: flutter test --update-goldens test/watch_layout_render_test.dart
         shell: bash
 
       - name: Upload goldens

@@ -119,39 +119,44 @@ class WatchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: 44,
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (meta != null) ...[
-              const SizedBox(width: 8),
-              Text(
-                meta!,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontSize: 11,
-                  color: theme.colorScheme.onSurfaceVariant,
+    // 槽位高度必须 = WatchBandList 的 pitch(52 = 视觉高 44 + 间距 8)：缺这 8px 会让
+    // 下面每行的 yTop 逐行偏 8px，内缩越算越小、列表越往下越会顶出圆边。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (meta != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  meta!,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -177,54 +182,59 @@ class WatchMediaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: 60,
-        child: Row(
-          children: [
-            // 封面 42x60（用仓库统一的缓存图片层）
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: NetworkImgLayer(
-                src: coverUrl,
-                width: 42,
-                height: 60,
-                filterQuality: FilterQuality.medium,
+    // 槽位高度必须 = WatchBandList 的 pitch(68 = 视觉高 60 + 间距 8)：缺这 8px 会让
+    // 下面每行的 yTop 逐行偏 8px，内缩越算越小、列表越往下越会顶出圆边。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: [
+              // 封面 42x60（用仓库统一的缓存图片层）
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: NetworkImgLayer(
+                  src: coverUrl,
+                  width: 42,
+                  height: 60,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (meta != null) ...[
-                    const SizedBox(height: 2),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      meta!,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant,
+                      title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (meta != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        meta!,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
