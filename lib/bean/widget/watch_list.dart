@@ -12,6 +12,8 @@ class WatchBandList extends StatefulWidget {
     this.pitch = 52.0,
     this.headerExtent = 0.0,
     this.extentOf,
+    this.edgeScale = 0.85,
+    this.edgeAlpha = 0.6,
     this.controller,
   });
 
@@ -28,6 +30,13 @@ class WatchBandList extends StatefulWidget {
   /// 列表里存在「高度不等于 pitch」的槽位时必须提供（例：首行统计卡 64 + 其余行 52），
   /// 否则 yTop 的等距近似会偏移，这些行的圆屏内缩就会算错。默认全部按 pitch 计算。
   final double Function(int index)? extentOf;
+
+  /// 贴近上下边缘的行缩到多小（1.0 = 不缩）。观感用，对齐 Wear Compose 的
+  /// ScalingLazyColumn / TransformingLazyColumn（官方叫 fisheye：边缘缩放 + 淡出）。
+  final double edgeScale;
+
+  /// 贴近上下边缘的行淡到多透明（1.0 = 不淡）。
+  final double edgeAlpha;
 
   /// 滚动控制器
   final ScrollController? controller;
@@ -88,10 +97,28 @@ class _WatchBandListState extends State<WatchBandList> {
             final inset = CircleInsets.bandInset(yTop);
             
             final row = widget.itemBuilder(context, index);
-            
+
+            // 观感层：越靠近上下边缘的行越小、越淡（官方 ScalingLazyColumn 那套）。
+            // 几何层仍由上面的圆弦内缩负责——缩放只做纵深，不会让行顶出圆边。
+            var scale = 1.0;
+            var alpha = 1.0;
+            if (widget.edgeScale < 1.0 || widget.edgeAlpha < 1.0) {
+              final half = MediaQuery.sizeOf(context).height / 2;
+              final rowCenter = yTop + widget.pitch / 2;
+              final flat = half * 0.45; // 中段平区：这一带不缩不淡
+              final k = (((rowCenter - half).abs() - flat) / (half - flat)).clamp(0.0, 1.0);
+              scale = 1.0 + (widget.edgeScale - 1.0) * k;
+              alpha = 1.0 + (widget.edgeAlpha - 1.0) * k;
+            }
+
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: inset),
-              child: row,
+              child: (scale == 1.0 && alpha == 1.0)
+                  ? row
+                  : Opacity(
+                      opacity: alpha,
+                      child: Transform.scale(scale: scale, child: row),
+                    ),
             );
           },
         );

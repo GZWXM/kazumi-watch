@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/modules/my/watch_stats.dart';
@@ -110,5 +111,32 @@ void main() {
     );
     await expectLater(find.byType(WatchBandList),
         matchesGoldenFile('goldens/watch_band_list.png'));
+  });
+
+  testWidgets('推荐页列表骨架：滚动中（看边缘缩放/淡出）', (tester) async {
+    Widget mediaSlot(int i) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E26),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Text('番剧第 $i 行', style: const TextStyle(fontSize: 12)),
+          ),
+        );
+    await pumpWatch(
+      tester,
+      WatchBandList(
+        pitch: 68,
+        itemCount: 12,
+        itemBuilder: (context, index) => mediaSlot(index),
+      ),
+    );
+    await tester.drag(find.byType(WatchBandList), const Offset(0, -150));
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(WatchBandList),
+        matchesGoldenFile('goldens/watch_band_list_scrolled.png'));
   });
 }
