@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/material.dart';
 
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -481,10 +482,14 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                       ? playerController.panel.showVideoController
                       : true),
               child: widget.disableAnimations
-                  ? _buildTopControls(compact)
+                  ? Padding(
+                      padding: _watchPanelInset(compact),
+                      child: _buildTopControls(compact))
                   : SlideTransition(
                       position: _topOffsetAnimation,
-                      child: _buildTopControls(compact)),
+                      child: Padding(
+                          padding: _watchPanelInset(compact),
+                          child: _buildTopControls(compact))),
             );
           }),
         ),
@@ -499,10 +504,14 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                       ? playerController.panel.showVideoController
                       : true),
               child: widget.disableAnimations
-                  ? _buildBottomControls(compact)
+                  ? Padding(
+                      padding: _watchPanelInset(compact, bottom: true),
+                      child: _buildBottomControls(compact))
                   : SlideTransition(
                       position: _bottomOffsetAnimation,
-                      child: _buildBottomControls(compact)),
+                      child: Padding(
+                          padding: _watchPanelInset(compact, bottom: true),
+                          child: _buildBottomControls(compact))),
             );
           }),
         ),
@@ -769,6 +778,35 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
     );
   }
 
+  /// 圆表：控制层贴着上下边缘时圆已经很窄（y≈44 可用 182dp、y≈205 只剩 151dp）。
+  /// 不内缩的话首尾控件落在圆外 —— 圆形屏上那不是"被裁"，是**物理点不到**。
+  EdgeInsets _watchPanelInset(bool compact, {bool bottom = false}) {
+    if (!compact) return EdgeInsets.zero;
+    if (bottom) {
+      final i = CircleInsets.bandInsetAtCenter(205);
+      return EdgeInsets.only(left: i, right: i, bottom: 8);
+    }
+    final i = CircleInsets.bandInset(CircleInsets.bodyTop);
+    return EdgeInsets.only(top: CircleInsets.bodyTop, left: i, right: i);
+  }
+
+  /// 画中画（桌面与安卓都走这里，按钮和「更多」菜单共用）
+  Future<void> _togglePictureInPicture() async {
+    if (_desktop) {
+      if (videoPageController.isPip) {
+        await PipUtils.exitDesktopPIPWindow();
+      } else {
+        await PipUtils.enterDesktopPIPWindow(
+          width: playerController.debug.playerWidth,
+          height: playerController.debug.playerHeight,
+        );
+      }
+      videoPageController.isPip = !videoPageController.isPip;
+      return;
+    }
+    await widget.enterAndroidPictureInPicture();
+  }
+
   Widget _buildTopControls(bool compact) {
     return EmbeddedNativeControlArea(
       requireOffset: compact || !videoPageController.isFullscreen,
@@ -808,33 +846,19 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                         ),
                 ),
               ),
-              _forwardButton(),
-              if ((_desktop &&
-                      (compact || !videoPageController.isFullscreen)) ||
-                  (defaultTargetPlatform == TargetPlatform.android))
+              if (!compact) _forwardButton(),
+              if (!compact &&
+                  ((_desktop &&
+                          (compact || !videoPageController.isFullscreen)) ||
+                      (defaultTargetPlatform == TargetPlatform.android)))
                 IconButton(
-                  onPressed: () async {
-                    if (_desktop) {
-                      if (videoPageController.isPip) {
-                        await PipUtils.exitDesktopPIPWindow();
-                      } else {
-                        await PipUtils.enterDesktopPIPWindow(
-                          width: playerController.debug.playerWidth,
-                          height: playerController.debug.playerHeight,
-                        );
-                      }
-                      videoPageController.isPip = !videoPageController.isPip;
-                      return;
-                    }
-                    await widget.enterAndroidPictureInPicture();
-                  },
+                  onPressed: _togglePictureInPicture,
                   tooltip: '画中画',
                   icon: const Icon(
                     Icons.picture_in_picture,
                     color: Colors.white,
                   ),
                 ),
-              if (compact) _buildDanmakuToggleButton(context),
               PlayerPanelHoldCollectButton(
                 acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                 bangumiItem: videoPageController.bangumiItem,
@@ -862,6 +886,11 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                 },
                 menuChildren: [
                   if (compact) ...[
+                    MenuItemButton(
+                        onPressed: _togglePictureInPicture,
+                        child: _menuLabel('画中画')),
+                    MenuItemButton(
+                        onPressed: widget.skipOP, child: _menuLabel('快进')),
                     SubmenuButton(
                         menuChildren: _aspectRatioItems,
                         child: _menuLabel('视频比例')),
