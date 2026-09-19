@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/utils/device.dart';
 
 typedef VideoPlayerLayout = ({bool fillsWindow, bool hasSidePanel});
@@ -40,6 +41,27 @@ class VideoPageLayout extends StatelessWidget {
       // 全屏应当铺满 —— 用 BoxFit.cover 把画面按比例放大裁边填满整块圆屏，
       // 否则方形屏上永远是一条吃不满的横条。
       final watchFill = roundWatch && fillsWindow;
+      // 圆的内接 16:9 矩形（四角落在圆周上时最大）：R=116.5 → 宽 ≈203、高 ≈114。
+      // 直接铺满会把四角顶出圆外、还要裁掉画面两侧；内接矩形才是"刚好塞进圆里"。
+      final inscribedW = 2 * CircleInsets.r / math.sqrt(1 + (9 / 16) * (9 / 16));
+      final inscribedH = inscribedW * 9 / 16;
+      if (roundWatch) {
+        return Stack(
+          alignment: Alignment.centerRight,
+          children: [
+            Center(
+              child: SizedBox(
+                width: inscribedW,
+                height: inscribedH,
+                child: Builder(
+                    builder: (context) => playerBuilder(
+                        context, (fillsWindow: true, hasSidePanel: hasSidePanel))),
+              ),
+            ),
+            if (hasSidePanel) sidePanel!,
+          ],
+        );
+      }
       final content = Stack(
         alignment: Alignment.centerRight,
         children: [
