@@ -25,15 +25,12 @@ void main() {
   });
 
   Future<void> pumpWatch(WidgetTester tester, Widget child) async {
-    // ⚠️ setSurfaceSize 给的是物理尺寸：dpr=2 时必须给 466，逻辑宽度才是 233。
-    // 早先这里给 233 + dpr2 → 逻辑只有 116.5，而 CircleInsets 的常量是按 233 写的，
-    // 几何全错位（渲染出来的行宽/内缩都不是真机的样子）。
-    tester.view.devicePixelRatio = 2.0;
-    await tester.binding.setSurfaceSize(const Size(466, 466));
-    addTearDown(() {
-      tester.binding.setSurfaceSize(null);
-      tester.view.resetDevicePixelRatio();
-    });
+    // ⚠️ setSurfaceSize 给的是**逻辑尺寸**（实测：给 466 时 MediaQuery/尺寸全是 466）。
+    // 而 CircleInsets.screen 是 233（真机 466 物理 / dpr2）→ 必须给 233，
+    // 否则渲染出来的行宽/内缩全是错的（曾把 466 当逻辑用，行宽刷到 442 的假值）。
+    // 也不要再叠 devicePixelRatio：两套尺寸一起改会把画布搞成第三种尺寸。
+    await tester.binding.setSurfaceSize(const Size(233, 233));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -59,7 +56,7 @@ void main() {
     downloadTaskCount: 2,
   );
 
-  testWidgets('诊断：逐行实际宽度 + bandInset 表（临时）', (tester) async {
+  testWidgets('几何护栏：逐行宽度不低于屏宽 62% + 打印 bandInset 表', (tester) async {
     await pumpWatch(tester, MySpaceView(stats: stats, onOpen: (_) {}));
     final s = tester.getSize(find.byType(MySpaceView));
     debugPrint('[diag] 逻辑尺寸=${s.width}x${s.height}');
@@ -72,7 +69,14 @@ void main() {
       debugPrint('[diag] bandInset(${y.toInt()})='
           '${CircleInsets.bandInset(y).toStringAsFixed(1)}');
     }
-    tester.takeException(); // 这个用例只做诊断，溢出异常先吞掉
+    // 夹紧的回归护栏：任何一行都不得窄于屏宽 62%（否则就是又会被压成一条线）
+    final rowsFound = rows.evaluate().length;
+    for (var i = 0; i < rowsFound; i++) {
+      final w = tester.getSize(rows.at(i)).width;
+      expect(w, greaterThanOrEqualTo(233 * 0.62),
+          reason: 'WatchRow#$i 宽度 $w 过窄，圆弦内缩的夹紧失效了');
+    }
+    tester.takeException(); // 布局期可能仍有溢出告警，这个用例只保证宽度下限
   });
 
   testWidgets('我的页：统计卡 + 设置清单（首屏）', (tester) async {
