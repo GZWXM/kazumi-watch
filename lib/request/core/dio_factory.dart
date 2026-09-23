@@ -21,7 +21,7 @@ class DioFactory {
           'referer': '',
           'user-agent': getRandomUA(),
         },
-        interceptors: [_BangumiMirrorInterceptor()],
+        interceptors: [_BangumiMirrorInterceptor(), _BangumiFallbackInterceptor()],
       );
 
   static Dio get rulesRepoDio => _rulesRepoDio ??= _create(
@@ -141,5 +141,50 @@ class _RulesMirrorInterceptor extends Interceptor {
     KazumiLogger().d('Rules mirror: $mirrored');
     options.path = mirrored;
     handler.next(options);
+  }
+}
+
+/// 官方 `api.bgm.tv` 连接失败（链路被断/超时）时自动降级到社区反代
+/// `api.bangumi.vip`（覆盖 `/v0/*` 与封面图，不含 `next.bgm.tv` 的 `/p1/*`）。
+/// 只在**连接类**错误上降级：4xx/5xx 说明链路是通的，不该换域名掩盖真实错误。
+class _BangumiFallbackInterceptor extends Interceptor {
+  static const _officialHost = 'api.bgm.tv';
+
+  bool _isConnectivityFailure(DioException err) {
+    switch (err.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  Future<void> onError(
+      DioException err, ErrorInterceptorHandler handler) async {
+    final uri = err.requestOptions.uri;
+    if (uri.host != _officialHost || !_isConnectivityFailure(err)) {
+      handler.next(err);
+      return;
+    }
+    final fallbackHost =
+        Uri.parse(ApiEndpoints.bangumiAPIFallbackDomain).host;
+    final fallbackUri = uri.replace(host: fallbackHost);
+    final options = err.requestOptions;
+    options.baseUrl = '';
+    options.path = fallbackUri.toString();
+    KazumiLogger().w('Bangumi fallback: $fallbackUri');
+    try {
+      final dio = DioFactory.createForConfig(NetworkConfig.fromSettings());
+      final response = await dio.fetch(options);
+      handler.resolve(response);
+    } on DioException catch (e) {
+      handler.next(e);
+    } catch (_) {
+      handler.next(err);
+    }
   }
 }
