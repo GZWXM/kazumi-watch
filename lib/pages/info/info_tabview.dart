@@ -7,14 +7,14 @@ import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/pages/info/info_comments_view.dart';
 import 'package:kazumi/pages/info/character_page.dart';
-import 'package:kazumi/bean/card/network_img_layer.dart';
+import 'package:kazumi/bean/card/character_card.dart';
+import 'package:kazumi/bean/card/staff_card.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/bangumi_relation.dart';
 import 'package:kazumi/modules/comments/comment_item.dart';
 import 'package:kazumi/modules/characters/character_item.dart';
 import 'package:kazumi/modules/staff/staff_item.dart';
-import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
 
@@ -195,95 +195,53 @@ class _InfoTabViewState extends State<InfoTabView> {
   }
 
   Widget get relationsListBody {
-    return Builder(
-      builder: (BuildContext context) {
-        return CustomScrollView(
-          scrollBehavior: const ScrollBehavior().copyWith(
-            scrollbars: false,
+    // 圆屏：WatchBandList 负责动态内缩，关联条目用 WatchMediaRow（带封面）
+    if (widget.relationsQueryTimeout) {
+      return GeneralErrorWidget(
+        title: '关联条目加载失败',
+        errMsg: '请检查网络连接后重试。',
+        onRetry: widget.loadRelations,
+      );
+    }
+    if (widget.relationsHasLoaded && widget.relationList.isEmpty) {
+      return const GeneralEmptyState(
+        icon: Icons.account_tree_rounded,
+        title: '暂无关联条目',
+      );
+    }
+    final showSkeleton = !widget.relationsHasLoaded || widget.relationsIsLoading;
+    if (showSkeleton) {
+      return WatchBandList(
+        key: const PageStorageKey<String>('关联'),
+        itemCount: 3,
+        pitch: 68,
+        itemBuilder: (context, _) => Skeletonizer.zone(
+          child: const WatchMediaRow(
+            coverUrl: '',
+            title: '加载中',
           ),
-          key: const PageStorageKey<String>('关联'),
-          slivers: <Widget>[
-            SliverLayoutBuilder(
-              builder: (context, constraints) {
-                if (widget.relationsQueryTimeout) {
-                  return SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: GeneralErrorWidget(
-                      title: '关联条目加载失败',
-                      errMsg: '请检查网络连接后重试。',
-                      onRetry: widget.loadRelations,
-                    ),
-                  );
-                }
-                if (widget.relationsHasLoaded && widget.relationList.isEmpty) {
-                  return const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: GeneralEmptyState(
-                      icon: Icons.account_tree_rounded,
-                      title: '暂无关联条目',
-                    ),
-                  );
-                }
-
-                final horizontalPadding =
-                    ((constraints.crossAxisExtent - maxWidth) / 2)
-                        .clamp(16.0, double.infinity)
-                        .toDouble();
-                final contentWidth =
-                    constraints.crossAxisExtent - horizontalPadding * 2;
-                // 圆屏禁用多列网格，关联条目固定单列
-                final crossAxisCount = isRoundWatch(MediaQuery.sizeOf(context))
-                    ? 1
-                    : contentWidth >= 840
-                        ? 3
-                        : contentWidth >= 560
-                            ? 2
-                            : 1;
-                final showSkeleton =
-                    !widget.relationsHasLoaded || widget.relationsIsLoading;
-                final itemCount =
-                    showSkeleton ? crossAxisCount : widget.relationList.length;
-
-                return SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    16,
-                    horizontalPadding,
-                    16,
-                  ),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: StyleString.cardSpace,
-                      crossAxisSpacing: StyleString.cardSpace,
-                      mainAxisExtent: _RelatedBangumiCardH.cardHeight,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (showSkeleton) {
-                          return LayoutBuilder(
-                            builder: (context, constraints) {
-                              return Skeletonizer.zone(
-                                child: Bone(
-                                  width: constraints.maxWidth,
-                                  height: _RelatedBangumiCardH.cardHeight,
-                                  uniRadius: 14,
-                                ),
-                              );
-                            },
-                          );
-                        }
-                        return _RelatedBangumiCardH(
-                          relation: widget.relationList[index],
-                        );
-                      },
-                      childCount: itemCount,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+        ),
+      );
+    }
+    return WatchBandList(
+      key: const PageStorageKey<String>('关联'),
+      itemCount: widget.relationList.length,
+      pitch: 68,
+      itemBuilder: (context, index) {
+        final rel = widget.relationList[index];
+        final bangumiItem = rel.toBangumiItem();
+        final title = bangumiItem.nameCn.isEmpty
+            ? bangumiItem.name.trim()
+            : bangumiItem.nameCn.trim();
+        final label = rel.relation.isEmpty ? '关联' : rel.relation;
+        return WatchMediaRow(
+          coverUrl: bangumiItem.images['large'] ?? '',
+          title: title,
+          meta: label,
+          onTap: () {
+            // 跳转到关联条目详情页，路由名与主模块注册一致
+            context.pushNamed('/info/', arguments: bangumiItem);
+          },
         );
       },
     );
@@ -294,9 +252,13 @@ class _InfoTabViewState extends State<InfoTabView> {
     final contentWidth = isRoundWatch(screenSize)
         ? screenSize.width
         : (screenSize.width > maxWidth ? maxWidth : screenSize.width - 32);
+    // 圆屏骨架同样用带表内缩，与 infoBody 对齐
+    final sidePadding = isRoundWatch(screenSize)
+        ? CircleInsets.bandInset(CircleInsets.bodyTop)
+        : 16.0;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 8),
         child: SizedBox(
           width: contentWidth,
           child: Column(
@@ -325,136 +287,106 @@ class _InfoTabViewState extends State<InfoTabView> {
   }
 
   Widget get staffListBody {
-    return Builder(
-      builder: (BuildContext context) {
-        return CustomScrollView(
-          scrollBehavior: const ScrollBehavior().copyWith(
-            scrollbars: false,
-          ),
-          key: PageStorageKey<String>('制作人员'),
-          slivers: <Widget>[
-            SliverLayoutBuilder(builder: (context, _) {
-              if (widget.staffList.isNotEmpty) {
-                return SliverList.builder(
-                  itemCount: widget.staffList.length,
-                  itemBuilder: (context, index) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: SizedBox(
-                          width: MediaQuery.sizeOf(context).width > maxWidth
-                              ? maxWidth
-                              : MediaQuery.sizeOf(context).width - 32,
-                          child: StaffCard(
-                            staffFullItem: widget.staffList[index],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-              if (widget.staffQueryTimeout) {
-                return SliverFillRemaining(
-                  child: GeneralErrorWidget(
-                    title: '制作人员加载失败',
-                    errMsg: '请检查网络连接后重试。',
-                    onRetry: widget.loadStaff,
-                  ),
-                );
-              }
-              if (widget.staffIsEmpty) {
-                return const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: GeneralEmptyState(
-                    icon: Icons.groups_rounded,
-                    title: '暂无制作人员信息',
-                  ),
-                );
-              }
-              return SliverList.builder(
-                itemCount: 8,
-                itemBuilder: (context, _) {
-                  // 圆屏骨架改用 WatchRow，与真实行高一致
-                  return Skeletonizer.zone(
-                    child: WatchRow(
-                      icon: Icons.person_outline_rounded,
-                      title: '加载中',
-                    ),
-                  );
-                },
-              );
-            }),
-          ],
-        );
-      },
+    // 圆屏：WatchBandList 负责动态内缩，不在页面层加横向 Padding
+    if (widget.staffList.isNotEmpty) {
+      return WatchBandList(
+        key: const PageStorageKey<String>('制作人员'),
+        itemCount: widget.staffList.length,
+        pitch: 52,
+        itemBuilder: (context, index) {
+          final s = widget.staffList[index];
+          return WatchRow(
+            icon: Icons.person_outline_rounded,
+            title: s.staff.nameCN.isNotEmpty ? s.staff.nameCN : s.staff.name,
+            meta: s.relations.isNotEmpty ? s.relations.first : null,
+          );
+        },
+      );
+    }
+    if (widget.staffQueryTimeout) {
+      return GeneralErrorWidget(
+        title: '制作人员加载失败',
+        errMsg: '请检查网络连接后重试。',
+        onRetry: widget.loadStaff,
+      );
+    }
+    if (widget.staffIsEmpty) {
+      return const GeneralEmptyState(
+        icon: Icons.groups_rounded,
+        title: '暂无制作人员信息',
+      );
+    }
+    // 骨架态：8 行 WatchRow，pitch 对齐真实行高避免 yTop 偏移
+    return WatchBandList(
+      key: const PageStorageKey<String>('制作人员'),
+      itemCount: 8,
+      pitch: 52,
+      itemBuilder: (context, _) => Skeletonizer.zone(
+        child: const WatchRow(
+          icon: Icons.person_outline_rounded,
+          title: '加载中',
+        ),
+      ),
     );
   }
 
   Widget get charactersListBody {
-    return Builder(
-      builder: (BuildContext context) {
-        return CustomScrollView(
-          scrollBehavior: const ScrollBehavior().copyWith(
-            scrollbars: false,
-          ),
-          key: PageStorageKey<String>('角色'),
-          slivers: <Widget>[
-            SliverLayoutBuilder(builder: (context, _) {
-              if (widget.characterList.isNotEmpty) {
-                return SliverList.builder(
-                  itemCount: widget.characterList.length,
-                  itemBuilder: (context, index) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: SizedBox(
-                          width: MediaQuery.sizeOf(context).width > maxWidth
-                              ? maxWidth
-                              : MediaQuery.sizeOf(context).width - 32,
-                          child: CharacterCard(
-                            characterItem: widget.characterList[index],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }
-              if (widget.charactersQueryTimeout) {
-                return SliverFillRemaining(
-                  child: GeneralErrorWidget(
-                    title: '角色列表加载失败',
-                    errMsg: '请检查网络连接后重试。',
-                    onRetry: widget.loadCharacters,
-                  ),
-                );
-              }
-              if (widget.charactersIsEmpty) {
-                return const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: GeneralEmptyState(
-                    icon: Icons.people_alt_rounded,
-                    title: '暂无角色信息',
-                  ),
-                );
-              }
-              return SliverList.builder(
-                itemCount: 4,
-                itemBuilder: (context, _) {
-                  // 圆屏骨架改用 WatchRow，与真实行高一致
-                  return Skeletonizer.zone(
-                    child: WatchRow(
-                      icon: Icons.person_outline_rounded,
-                      title: '加载中',
-                    ),
-                  );
-                },
+    // 圆屏：WatchBandList 负责动态内缩，角色用 onTap 打开底部面板而非直接路由
+    if (widget.characterList.isNotEmpty) {
+      return WatchBandList(
+        key: const PageStorageKey<String>('角色'),
+        itemCount: widget.characterList.length,
+        pitch: 52,
+        itemBuilder: (context, index) {
+          final c = widget.characterList[index];
+          return WatchRow(
+            icon: Icons.person_outline_rounded,
+            title: c.name,
+            meta: c.relation,
+            onTap: () {
+              // CharacterPage 是底部面板入口，不是独立路由；保持原 CharacterCard 的打开方式
+              showAdaptiveBottomSheet<void>(
+                context: context,
+                builder: (_) => CharacterPage(
+                  characterID: c.id,
+                  characterName: c.name,
+                  characterRelation: c.relation,
+                  actorNames: c.actorList
+                      .map((a) => a.name.trim())
+                      .where((n) => n.isNotEmpty)
+                      .toSet()
+                      .toList(),
+                ),
               );
-            }),
-          ],
-        );
-      },
+            },
+          );
+        },
+      );
+    }
+    if (widget.charactersQueryTimeout) {
+      return GeneralErrorWidget(
+        title: '角色列表加载失败',
+        errMsg: '请检查网络连接后重试。',
+        onRetry: widget.loadCharacters,
+      );
+    }
+    if (widget.charactersIsEmpty) {
+      return const GeneralEmptyState(
+        icon: Icons.people_alt_rounded,
+        title: '暂无角色信息',
+      );
+    }
+    // 骨架态：4 行 WatchRow，pitch 对齐真实行高
+    return WatchBandList(
+      key: const PageStorageKey<String>('角色'),
+      itemCount: 4,
+      pitch: 52,
+      itemBuilder: (context, _) => Skeletonizer.zone(
+        child: const WatchRow(
+          icon: Icons.person_outline_rounded,
+          title: '加载中',
+        ),
+      ),
     );
   }
 
@@ -463,24 +395,21 @@ class _InfoTabViewState extends State<InfoTabView> {
     return TabBarView(
       controller: widget.tabController,
       children: [
-        Builder(
-          builder: (BuildContext context) {
-            return CustomScrollView(
-              scrollBehavior: const ScrollBehavior().copyWith(
-                scrollbars: false,
-              ),
-              key: PageStorageKey<String>('概览'),
-              slivers: <Widget>[
-                SliverToBoxAdapter(
-                  child: SafeArea(
-                    top: false,
-                    bottom: false,
-                    child: widget.isLoading ? infoBodyBone : infoBody,
-                  ),
-                ),
+        // 概览 tab：简介 + 标签 + 次级操作（追番/外链）
+        SingleChildScrollView(
+          key: const PageStorageKey<String>('概览'),
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                widget.isLoading ? infoBodyBone : infoBody,
+                // 次级操作由 info_page 传入，放在概览内容最下方
+                widget.secondaryActions,
               ],
-            );
-          },
+            ),
+          ),
         ),
         InfoCommentsView(
           interest: widget.bangumiItem.interest,
@@ -500,98 +429,4 @@ class _InfoTabViewState extends State<InfoTabView> {
   }
 }
 
-class _RelatedBangumiCardH extends StatelessWidget {
-  const _RelatedBangumiCardH({required this.relation});
 
-  static const double cardHeight = 108;
-  static const double imageHeight = 92;
-  static const double posterAspectRatio = 0.65;
-
-  final BangumiRelation relation;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textScaler =
-        MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.1);
-    final relationLabel = relation.relation.isEmpty ? '关联' : relation.relation;
-    final bangumiItem = relation.toBangumiItem();
-    final title = bangumiItem.nameCn.isEmpty
-        ? bangumiItem.name.trim()
-        : bangumiItem.nameCn.trim();
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: InkWell(
-        onTap: () {
-          context.pushNamed('/info/', arguments: bangumiItem);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final gap = constraints.maxWidth.clamp(0.0, 10.0).toDouble();
-              final maxImageWidth =
-                  (constraints.maxWidth - gap).clamp(0.0, 152.0);
-              final imageWidth = (constraints.maxWidth * 0.42)
-                  .clamp(0.0, maxImageWidth)
-                  .toDouble();
-
-              return Row(
-                children: [
-                  NetworkImgLayer(
-                    src: bangumiItem.images['large'] ?? '',
-                    width: imageWidth,
-                    height: imageHeight,
-                    origAspectRatio: posterAspectRatio,
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textScaler: textScaler,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Text(
-                          relationLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textScaler: textScaler,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
