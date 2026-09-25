@@ -119,7 +119,10 @@ class _RoundSettingsSlotState extends State<_RoundSettingsSlot> {
         final width = MediaQuery.sizeOf(context).width;
         // 夹紧口径与 WatchBandList 一致（行宽不低于整屏 62%）：视口外/圆最窄处的行
         // 不压成一条线，否则滑杆、开关这类有固定宽度的内容会 RenderFlex overflow。
-        final maxInset = width * 0.19 < 44.0 ? width * 0.19 : 44.0;
+        // ⚠️ 上限取 31（不是 44）：几何上 body 带最窄处（y=44）只需 31dp 内缩
+        //    （见 circle_insets.dart 注释），取 44 会把行宽压到 145dp，
+        //    开关行（Switch 52 + 图标 24 + 间距 16 + 内边距 24 = 116）只余 ~29dp 给标签 → 挤爆。
+        final maxInset = width * 0.19 < 31.0 ? width * 0.19 : 31.0;
 
         var inset = 0.0;
         if (_measuredTop.isFinite && _measuredHeight > 0) {
