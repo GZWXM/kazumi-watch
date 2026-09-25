@@ -3,6 +3,9 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
+// ⚠️ 下面三个 import 是给 part 文件（search_filter_sheet.dart）用的，本文件里看起来「没引用」
+//    也不能删 —— part 文件没有自己的 import，全部继承宿主库。
+import 'package:kazumi/bean/dialog/material_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
@@ -12,6 +15,8 @@ import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/storage/settings_keys.dart';
+import 'package:kazumi/utils/constants.dart';      // part 文件（search_filter_sheet）要用
+import 'package:kazumi/utils/date_time.dart';       // 同上：formatDateTime
 import 'package:kazumi/utils/search_parser.dart';
 
 part 'search_filter_sheet.dart';

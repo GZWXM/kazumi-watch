@@ -1,11 +1,12 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/pages/info/info_comments_view.dart';
-import 'package:kazumi/bean/card/character_card.dart';
-import 'package:kazumi/bean/card/staff_card.dart';
+import 'package:kazumi/pages/info/character_page.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
@@ -42,6 +43,8 @@ class InfoTabView extends StatefulWidget {
     required this.staffList,
     required this.relationList,
     required this.isLoading,
+    // 次级操作从 info_page 传入，避免放在 SliverFillRemaining 后的死 sliver
+    required this.secondaryActions,
   });
 
   final bool commentsQueryTimeout;
@@ -66,6 +69,7 @@ class InfoTabView extends StatefulWidget {
   final List<StaffFullItem> staffList;
   final List<BangumiRelation> relationList;
   final bool isLoading;
+  final Widget secondaryActions;
 
   @override
   State<InfoTabView> createState() => _InfoTabViewState();
@@ -81,9 +85,13 @@ class _InfoTabViewState extends State<InfoTabView> {
     final roundWatch = isRoundWatch(screenSize);
     final contentWidth =
         roundWatch ? screenSize.width : (screenSize.width > maxWidth ? maxWidth : screenSize.width - 32);
+    // 圆屏：横向内缩用带表计算，避免页面层双重内缩；非圆屏保持原有 16dp 边距
+    final sidePadding = roundWatch
+        ? CircleInsets.bandInset(CircleInsets.bodyTop)
+        : 16.0;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 8),
         child: SizedBox(
           width: contentWidth,
           child: Column(

@@ -523,12 +523,12 @@ class _InfoPageState extends State<InfoPage>
                   relationsHasLoaded: infoController.relationsHasLoaded,
                   loadRelations: loadRelations,
                   isLoading: showBangumiInfoSkeleton,
+                  // 次级操作（追番/外链）从这里传入，在概览 tab 末尾渲染；
+                  // 原来放在 SliverFillRemaining 后面的 sliver 永远不会被渲染。
+                  secondaryActions: _buildWatchSecondaryActions(),
                 );
               }),
             ),
-              SliverToBoxAdapter(
-                child: _buildWatchSecondaryActions(),
-              ),
             ],
           ),
           // 常驻的「开始观看」，贴下沿、留在圆的安全区内
