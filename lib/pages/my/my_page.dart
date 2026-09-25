@@ -50,6 +50,9 @@ class _MyPageState extends State<MyPage> {
     }
   }
 
+  // 每个 MyDestination 都必须在 MySpaceView.rows 里有对应的一行（当前 9 个：
+  // theme/player/danmaku/rules/history/downloads/sync/storage/about）。
+  // 枚举新增值时这里的 switch 会因不穷尽而编译失败，但 rows 不会——两边要一起改。
   void _open(MyDestination destination) =>
       context.pushNamed(switch (destination) {
         MyDestination.theme => '/settings/theme',

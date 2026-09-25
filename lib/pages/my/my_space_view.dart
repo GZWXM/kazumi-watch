@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/watch_list.dart';
-import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/modules/my/watch_stats.dart';
 import 'package:material_new_shapes/material_new_shapes.dart';
 
@@ -52,6 +51,7 @@ class MySpaceView extends StatelessWidget {
       ('外观', Icons.palette_rounded, MyDestination.theme, null),
       ('播放', Icons.play_circle_rounded, MyDestination.player, null),
       ('弹幕', Icons.subtitles_rounded, MyDestination.danmaku, null),
+      ('规则管理', Icons.extension_rounded, MyDestination.rules, '番剧资源规则'),
       ('关于', Icons.info_outline_rounded, MyDestination.about, null),
     ];
 
@@ -187,32 +187,6 @@ class _StatCount extends StatelessWidget {
             style: theme.textTheme.labelMedium
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       ],
-    );
-  }
-}
-
-class MySettingsButton extends StatelessWidget {
-  const MySettingsButton({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: '全部设置',
-      child: FilledButton.tonalIcon(
-        style: StateActionButton.styleOf(context).copyWith(
-          backgroundColor: WidgetStatePropertyAll(colors.surfaceContainerHigh),
-          foregroundColor: WidgetStatePropertyAll(colors.onSurface),
-          padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          ),
-        ),
-        onPressed: onTap,
-        icon: const Icon(Icons.tune_rounded, size: 20),
-        label: const Text('设置'),
-      ),
     );
   }
 }
