@@ -8,6 +8,7 @@ import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/bangumi_review.dart';
 import 'package:kazumi/services/logging/logger.dart';
+import 'package:kazumi/utils/device.dart';
 
 class RatingReviewDialog extends StatefulWidget {
   const RatingReviewDialog({
@@ -618,8 +619,17 @@ class _RatingReviewDialogState extends State<RatingReviewDialog> {
 
   Widget _buildActions() {
     final colors = Theme.of(context).colorScheme;
+    // 圆表（Dialog.fullscreen，见 build 的 fullscreen 判定）：底部操作行必须落在圆弦内。
+    // 原来 bottom:16 让行压在 y∈[188,217] 的窄弦里 —— y=217 时弦宽只剩 117.8dp（行宽 185），
+    // 两端各被圆边切 ≤33.6dp，主按钮右下角被切。WatchScaffold 的口径是底部 45
+    // （watch_scaffold.dart:39-40：mq.padding.bottom > 0 ? padding.bottom : 45）。
+    // 外层 SafeArea 已经把系统 padding 垫掉了，这里只补「不足 45 的部分」。
+    final media = MediaQuery.of(context);
+    final bottomPadding = isRoundWatch(media.size)
+        ? (media.padding.bottom < 45 ? 45 - media.padding.bottom : 0.0)
+        : 16.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPadding),
       child: Row(children: [
         Expanded(
             child: Text('发布至 Bangumi',

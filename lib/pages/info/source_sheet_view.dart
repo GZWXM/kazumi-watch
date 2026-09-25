@@ -130,6 +130,11 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
         .fold(0, (sum, group) => sum + group.results.length);
     final sideInset = CircleInsets.insetOf(_bodyBand);
     final headerInset = CircleInsets.bandInset(CircleInsets.titleTop);
+    // 圆表标题带可用宽只有 233−2×51.7 ≈ 130dp：
+    // 「选择来源」(≈64) + 聚合计数(≈73) + 8 + 关闭(48) ≈ 193 → 标题会被省略到 ≈1 个字。
+    // WatchScaffold 的标题带同样只放 leading+title（无 trailing），这里跟着砍掉聚合计数；
+    // 每组来源头上各自有状态标签（'检索中'/'N 条'），不丢关键信息。
+    final roundWatch = isRoundWatch(MediaQuery.sizeOf(context));
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -197,15 +202,17 @@ class _SourceSheetViewState extends State<_SourceSheetView> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    pending > 0
-                        ? '检索中 ${widget.groups.length - pending}/${widget.groups.length} · $resultCount'
-                        : '${widget.groups.length} 个来源 · $resultCount',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (!roundWatch) ...[
+                    Text(
+                      pending > 0
+                          ? '检索中 ${widget.groups.length - pending}/${widget.groups.length} · $resultCount'
+                          : '${widget.groups.length} 个来源 · $resultCount',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                  ],
                   IconButton(
                     onPressed: widget.onClose,
                     icon: const Icon(Icons.close_rounded, size: 20),

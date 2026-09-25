@@ -55,7 +55,16 @@ Future<T?> showAdaptiveBottomSheet<T>({
             clipBehavior: Clip.antiAlias,
             child: SingleChildScrollView(
               padding: EdgeInsets.zero,
-              child: Builder(builder: builder),
+              child: Builder(builder: (ctx) {
+                final child = builder(ctx);
+                // ⚠️ Scaffold（以及任何自己管理内部滚动的布局）在无界滚动里会触发布局断言
+                //   `RenderCustomMultiChildLayoutBox was given an infinite size`。
+                //   这类子级给一个确定高度，让它在自己内部滚动；其余子级行为不变。
+                if (child is Scaffold) {
+                  return SizedBox(height: 190, child: child);
+                }
+                return child;
+              }),
             ),
           ),
         ),

@@ -35,6 +35,10 @@ void _showCustomKeywordDialog({
 
   KazumiDialog.show(
     builder: (context) => AlertDialog(
+      // 圆表：对话框盒只有 153×185（233 − insetPadding 40/24），
+      // 标题+输入框+两枚竖排动作 ≈350dp → 动作会落到框外、命中测试以父盒为界 → 够不着。
+      // 与同库 _VerifyDialogFrame（source_captcha_flow.dart:122）同口径打开 scrollable。
+      scrollable: true,
       title: const Text('修改检索词'),
       content: TextFormField(
         initialValue: initialKeyword,
@@ -87,6 +91,8 @@ class _AliasPickerDialogState extends State<_AliasPickerDialog> {
   void _confirmDelete(int index) {
     KazumiDialog.show(
       builder: (context) => AlertDialog(
+        // 同上：圆表 153×185 装不下标题+说明+竖排动作（≈208dp），动作会落到框外
+        scrollable: true,
         title: const Text('删除确认'),
         content: const Text('删除后无法恢复，确认要永久删除这个别名吗？'),
         actions: [

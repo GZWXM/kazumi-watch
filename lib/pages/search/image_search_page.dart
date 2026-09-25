@@ -208,6 +208,11 @@ class _ImageSearchPageState extends State<ImageSearchPage> {
     KazumiDialog.show<void>(
       context: context,
       builder: (context) => AlertDialog(
+        // scrollable 必须开：内容（3 段中文 ≈520dp）高于对话框盒时，
+        // 非 scrollable 的 AlertDialog 会把 actions 排到框外 —— 命中测试以父盒为界，
+        // 「知道了 / 访问 trace.moe」都点不到（窄窗/横屏同样中招）。
+        // 原来 content 里那层 SingleChildScrollView 在 Column 里拿到无界高度，等于没修。
+        scrollable: true,
         icon: const Icon(Icons.image_search_rounded),
         title: const Text('让截图更容易被找到'),
         content: const SingleChildScrollView(
