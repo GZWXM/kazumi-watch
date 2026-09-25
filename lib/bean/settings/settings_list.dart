@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/content_section.dart';
 import 'package:kazumi/bean/widget/split_list_row.dart';
+import 'package:kazumi/utils/device.dart';
 
 enum _TileKind { plain, toggle, radio }
 
@@ -18,6 +20,11 @@ class SettingsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 圆屏分支：这个外壳被 23 个设置子页共用，必须在圆上自己收窄，否则内容被圆边切。
+    // 非圆屏走下面这段原有实现，逐字未动。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return _RoundSettingsList(sections: sections, maxWidth: maxWidth);
+    }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 12),
       itemCount: sections.length,
@@ -28,6 +35,123 @@ class SettingsList extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 圆屏设置列表：逐行按「该行在屏幕上的真实垂直中心」取圆弦内缩。
+///
+/// 为什么这里没用 WatchBandList：它的 yTop 是「index × pitch」的线性模型，前提是每个槽位
+/// 高度能提前上报（extentOf）。而本类的 sections 是 23 个设置子页各写各的任意 widget——
+/// SettingsSection 内部还嵌 SplitListGroup（行里含图标、可换行描述、滑杆、开关），标题与
+/// bottomInfo 同样是任意 widget，高度静态算不出来。硬报一个 pitch 会让 yTop 系统性偏大 →
+/// 内缩偏小 → 行顶出圆边（正是这轮要修的症状，且偏差随行号累积）。
+/// 所以改读 render tree 里的真实位置：不做高度累加、不做任何估算。
+///
+/// 内缩只有这一个来源：WatchScaffold 明确不加水平 padding（只加 top 44 / bottom），
+/// 本列表自身也只保留垂直 padding 12，圆屏下不存在第二处内缩。
+class _RoundSettingsList extends StatefulWidget {
+  const _RoundSettingsList({required this.sections, required this.maxWidth});
+
+  final List<Widget> sections;
+  final double maxWidth;
+
+  @override
+  State<_RoundSettingsList> createState() => _RoundSettingsListState();
+}
+
+class _RoundSettingsListState extends State<_RoundSettingsList> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: _controller,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      itemCount: widget.sections.length,
+      itemBuilder: (context, index) => Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+          child: _RoundSettingsSlot(
+            controller: _controller,
+            child: widget.sections[index],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一个设置分区槽位：内缩只在本层算一次并施加。
+class _RoundSettingsSlot extends StatefulWidget {
+  const _RoundSettingsSlot({required this.controller, required this.child});
+
+  final ScrollController controller;
+  final Widget child;
+
+  @override
+  State<_RoundSettingsSlot> createState() => _RoundSettingsSlotState();
+}
+
+class _RoundSettingsSlotState extends State<_RoundSettingsSlot> {
+  final GlobalKey _probeKey = GlobalKey();
+
+  /// 上一次布局后实测的屏幕坐标（顶部 Y、高度）与当时的滚动偏移。
+  double _measuredTop = double.nan;
+  double _measuredHeight = 0;
+  double _measuredOffset = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.controller,
+      // child 只建一次：滚动时只重算内缩，不重建分区内容。
+      child: KeyedSubtree(key: _probeKey, child: widget.child),
+      builder: (context, child) {
+        // 布局完成后读真实位置。必须在 post-frame 阶段读：build 里布局还没发生。
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+
+        final width = MediaQuery.sizeOf(context).width;
+        // 夹紧口径与 WatchBandList 一致（行宽不低于整屏 62%）：视口外/圆最窄处的行
+        // 不压成一条线，否则滑杆、开关这类有固定宽度的内容会 RenderFlex overflow。
+        final maxInset = width * 0.19 < 44.0 ? width * 0.19 : 44.0;
+
+        var inset = 0.0;
+        if (_measuredTop.isFinite && _measuredHeight > 0) {
+          // 上次实测之后又滚了多少：内缩跟着滚动实时变，又不必在 build 里读 render tree
+          // （布局未跑完时读到的是过期值）。offscreen 的行会算出大内缩并被上面的夹紧兜住。
+          final scrolled = widget.controller.hasClients
+              ? widget.controller.offset - _measuredOffset
+              : 0.0;
+          final center = _measuredTop - scrolled + _measuredHeight / 2;
+          inset = CircleInsets.bandInsetAtCenter(center).clamp(0.0, maxInset);
+        }
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: inset),
+          child: child,
+        );
+      },
+    );
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final box = _probeKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final firstMeasure = !_measuredTop.isFinite;
+    _measuredTop = box.localToGlobal(Offset.zero).dy;
+    _measuredHeight = box.size.height;
+    _measuredOffset =
+        widget.controller.hasClients ? widget.controller.offset : 0.0;
+    // 首帧必然是「未测量 → 内缩 0」，补一帧让内缩生效；之后滚动由控制器的通知驱动，
+    // 不再 setState —— 避免「内缩改宽度 → 文字重排改高度 → 再改内缩」的自激循环。
+    if (firstMeasure) setState(() {});
   }
 }
 
