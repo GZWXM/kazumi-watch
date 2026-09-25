@@ -7,6 +7,7 @@ import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/navigation.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/pages/router.dart';
+import 'package:kazumi/utils/device.dart';
 
 class ScaffoldMenu extends StatefulWidget {
   const ScaffoldMenu({super.key, required this.location});
@@ -138,20 +139,26 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   }
 
   Widget _bottomMenu(BuildContext context, int selectedIndex) {
-    // 圆形表盘：用弧形导航（方形 NavigationBar 的高 80dp 会顶出圆外被裁）
-    final size = MediaQuery.sizeOf(context);
-    final isRoundWatch = size.shortestSide < 400 &&
-        (size.width - size.height).abs() < size.width * 0.12;
-    if (isRoundWatch) {
+    final mq = MediaQuery.of(context);
+    final size = mq.size;
+    
+    // 使用统一的设备判定
+    if (isRoundWatch(size)) {
       return Scaffold(
         body: Stack(
           children: [
-            _outlet(context),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 104,
+            // Outlet 内容，注入底部 padding 为 93dp (233 - 140)
+            // 这样 WatchScaffold 或其他页面可以感知到底部被导航栏占据的空间
+            Positioned.fill(
+              child: MediaQuery(
+                data: mq.copyWith(
+                  padding: mq.padding.copyWith(bottom: 93),
+                ),
+                child: _outlet(context),
+              ),
+            ),
+            // 导航栏覆盖在全屏上，但只有图标区域响应点击
+            Positioned.fill(
               child: CurvedNavBar(
                 selectedIndex: selectedIndex,
                 onSelected: _selectDestination,
@@ -183,6 +190,8 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
         ),
       );
     }
+    
+    // 手机分支保持原样
     return Scaffold(
       body: _outlet(context),
       bottomNavigationBar: NavigationBar(

@@ -7,14 +7,18 @@ import 'package:kazumi/bean/card/bangumi_timeline_card.dart';
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/dialog/material_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/bangumi_mirror_error_widget.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/content_section.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/timeline/timeline_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/anime_season.dart';
+import 'package:kazumi/utils/device.dart';
 
 part 'timeline_options.dart';
 part 'timeline_week_selector.dart';
@@ -34,6 +38,9 @@ class TimelinePage extends StatefulWidget {
 class _TimelinePageState extends State<TimelinePage> {
   TimelineController get _controller => widget.controller;
   late final bool _showRating;
+
+  /// 手表布局当前选中的星期（0=周一）。null = 跟随今天。
+  int? _watchSelectedDay;
 
   @override
   void initState() {
@@ -132,12 +139,109 @@ class _TimelinePageState extends State<TimelinePage> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    if (isRoundWatch(size)) {
+      return _buildWatchLayout(context);
+    }
+    
     return DefaultTabController(
       length: 7,
       initialIndex: DateTime.now().weekday - 1,
       animationDuration:
           MediaQuery.disableAnimationsOf(context) ? Duration.zero : null,
       child: _buildContent(context),
+    );
+  }
+
+  Widget _buildWatchLayout(BuildContext context) {
+    return Observer(builder: (context) {
+      final loading = _controller.isLoading;
+      final failed = _controller.isTimeOut;
+      final watchingIds = _controller.loadWatchingBangumiIds();
+      final calendar = _controller.filterCalendar(watchingIds);
+      final today = DateTime.now();
+      final currentSeason = isSameSeason(_controller.selectedDate, today);
+      
+      final selectedIndex = _watchSelectedDay ?? (today.weekday - 1);
+
+      final items = calendar[selectedIndex.clamp(0, 6)];
+      
+      return WatchScaffold(
+        title: '时间表',
+        leading: IconButton(
+          icon: const Icon(Icons.calendar_month_rounded),
+          onPressed: () => _showSeasonBottomSheet(context),
+        ),
+        child: Column(
+          children: [
+            // Week Selector Chips at y≈60
+            _TimelineWeekSelector(
+              counts: calendar.map((day) => day.length).toList(),
+              todayIndex: currentSeason ? today.weekday - 1 : null,
+              isLoading: loading || failed,
+              selectedIndex: selectedIndex,
+              onSelected: (index) => setState(() => _watchSelectedDay = index),
+            ),
+            const SizedBox(height: 8),
+            // Content List
+            Expanded(
+              child: _buildWatchDayList(
+                context,
+                items: items,
+                watchingIds: watchingIds,
+                loading: loading,
+                failed: failed,
+                filteredOut: false, // Simplified for watch
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildWatchDayList(
+    BuildContext context, {
+    required List<BangumiItem> items,
+    required Set<int> watchingIds,
+    required bool loading,
+    required bool failed,
+    required bool filteredOut,
+  }) {
+    if (loading && items.isEmpty) {
+      return const Center(child: LoadingIndicator());
+    }
+    if (failed) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: BangumiMirrorErrorWidget(
+          onRetry: () => _controller.loadSeason(_controller.selectedDate),
+          onSettingsReturned: () {
+            if (mounted) setState(() {});
+          },
+        ),
+      );
+    }
+    if (items.isEmpty) {
+      return GeneralEmptyState(
+        icon: Icons.event_available_rounded,
+        title: '这一天暂无放送',
+        actions: [],
+      );
+    }
+
+    return WatchBandList(
+      pitch: 68,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return WatchMediaRow(
+          coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+          title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
+          meta: _showRating ? '评分 ${item.ratingScore.toStringAsFixed(1)}' : null,
+          onTap: () => context.pushNamed('/info/', arguments: item),
+        );
+      },
     );
   }
 

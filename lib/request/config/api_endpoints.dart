@@ -44,6 +44,13 @@ class ApiEndpoints {
   /// bangumi API
   static const String bangumiAPIDomain = 'https://api.bgm.tv';
 
+  /// bangumi API 降级反代（社区项目 Mirrox：api.bgm.tv → api.bangumi.vip）
+  ///
+  /// 实测覆盖 `/v0/*`（条目/搜索/剧集）与封面图（`lain.bangumi.vip`），
+  /// **不覆盖** `next.bgm.tv` 的 `/p1/*`（日历/趋势/评论）。
+  /// 仅在官方域名连接失败时自动降级，见 DioFactory 的 _BangumiFallbackInterceptor。
+  static const String bangumiAPIFallbackDomain = 'https://api.bangumi.vip';
+
   /// Bangumi 鉴权 API
   static const String bangumiAuthAPIMirrorDomain = 'https://api.bgmapi.com';
 

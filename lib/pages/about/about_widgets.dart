@@ -79,7 +79,7 @@ class AboutLinkTile extends StatelessWidget {
             : context.pushNamed(_route!),
         onHighlightChanged: SplitListRow.pressReporterOf(context),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
             children: [
               StateIconBadge(

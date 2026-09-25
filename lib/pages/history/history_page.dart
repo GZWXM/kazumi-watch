@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
+import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/bean/widget/empty_state_widget.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/modules/history/history_module.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
@@ -23,15 +27,41 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class _HistoryPageState extends State<HistoryPage> with KazumiDialogOwner {
   bool _editing = false;
   bool _clearing = false;
   final Set<String> _deleting = {};
+
+  HistoryPlaybackService get _playbackService =>
+      inject<HistoryPlaybackService>();
 
   @override
   void initState() {
     super.initState();
     widget.controller.init();
+  }
+
+  /// 圆屏「继续播放」：与 [_HistoryCardState._play] 同一条服务链路。
+  Future<void> _play(History history) async {
+    if (_editing || _clearing || _deleting.isNotEmpty || dialogs.isRunning) {
+      return;
+    }
+    await dialogs.run((task) async {
+      final cancelToken = RuleCancelToken();
+      final result = await task.loading(
+        message: '获取中',
+        onCancel: cancelToken.cancel,
+        action: () =>
+            _playbackService.open(history, cancelToken: cancelToken),
+      );
+      switch (result) {
+        case HistoryPlaybackReady(:final args):
+          task.withContext(
+              (context) => context.pushNamed('/video/', arguments: args));
+        case HistoryPlaybackUnavailable(:final reason):
+          KazumiDialog.showToast(message: reason);
+      }
+    }, errorMessage: '暂时无法继续播放，请稍后重试');
   }
 
   Future<void> _deleteHistory(History history) async {
@@ -89,6 +119,50 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 圆屏布局：WatchScaffold + WatchBandList。
+  /// 行内缩全部由 WatchBandList 负责，页面层不加水平 Padding。
+  /// 行 = N 条记录行（pitch 64 = 视觉 56 + 间隙 8）+ 末尾一行操作行（管理/清空）。
+  Widget _buildWatchLayout(BuildContext context, List<History> entries) {
+    return WatchScaffold(
+      title: '历史记录',
+      leading: IconButton(
+        onPressed: () => Navigator.of(context).maybePop(),
+        icon: const Icon(Icons.arrow_back_rounded),
+      ),
+      child: WatchBandList(
+        pitch: 64,
+        itemCount: entries.isEmpty ? 1 : entries.length + 1,
+        itemBuilder: (context, index) {
+          if (entries.isEmpty) {
+            return const GeneralEmptyState(
+              icon: Icons.history_rounded,
+              title: '还没有观看记录',
+            );
+          }
+          if (index == entries.length) {
+            return _WatchHistoryActions(
+              count: entries.length,
+              editing: _editing,
+              busy: _clearing || _deleting.isNotEmpty,
+              onToggleEditing: () => setState(() => _editing = !_editing),
+              onClear: _clearHistory,
+            );
+          }
+          final history = entries[index];
+          return _WatchHistoryRow(
+            history: history,
+            editing: _editing,
+            busy: _clearing || _deleting.contains(history.key),
+            onPlay: () => _play(history),
+            onDelete: () => _deleteHistory(history),
+            onDetails: () =>
+                context.pushNamed('/info/', arguments: history.bangumiItem),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Observer(builder: (context) {
@@ -100,7 +174,10 @@ class _HistoryPageState extends State<HistoryPage> {
             setState(() => _editing = false);
           }
         },
-        child: Scaffold(
+        // 圆屏走 WatchScaffold + WatchBandList（水平内缩只由 WatchBandList 负责）
+        child: isRoundWatch(MediaQuery.sizeOf(context))
+            ? _buildWatchLayout(context, entries)
+            : Scaffold(
           appBar: SysAppBar(
             title: Text('历史记录',
                 style: Theme.of(context)
@@ -234,5 +311,179 @@ class _HistoryCardState extends State<_HistoryCard> with KazumiDialogOwner {
         onChangeCollect: _updatingCollect ? null : _changeCollect,
       );
     });
+  }
+}
+
+/// 圆屏记录行：视觉高 56 + 间距 8 = WatchBandList pitch 64。
+/// 信息密度按圆屏压缩：封面 34×48 + 标题单行 + 剧集/时间单行；
+/// 点按继续播放，长按进番剧详情，编辑态在行尾出现删除按钮。
+class _WatchHistoryRow extends StatelessWidget {
+  const _WatchHistoryRow({
+    required this.history,
+    required this.editing,
+    required this.busy,
+    required this.onPlay,
+    required this.onDelete,
+    required this.onDetails,
+  });
+
+  final History history;
+  final bool editing;
+  final bool busy;
+  final VoidCallback onPlay;
+  final VoidCallback onDelete;
+  final VoidCallback onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final title = history.bangumiItem.nameCn.isEmpty
+        ? history.bangumiItem.name
+        : history.bangumiItem.nameCn;
+    final episode = history.lastWatchEpisodeName.isEmpty
+        ? '第 ${history.lastWatchEpisode} 话'
+        : history.lastWatchEpisodeName;
+    final time = TimeOfDay.fromDateTime(history.lastWatchTime.toLocal())
+        .format(context);
+    final image = history.bangumiItem.images['large'] ?? '';
+
+    // 槽位高度必须 = pitch(64 = 56 + 8)：缺这 8px 会让下面每行的 yTop 逐行偏移，
+    // 内缩越算越小、列表越往下越会顶出圆边。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: editing || busy ? null : onPlay,
+        onLongPress: editing || busy ? null : onDetails,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: image.isEmpty
+                    ? Container(
+                        width: 34,
+                        height: 48,
+                        color: colors.surfaceContainerHighest,
+                        child: Icon(Icons.movie_outlined,
+                            size: 18, color: colors.onSurfaceVariant),
+                      )
+                    : NetworkImgLayer(
+                        src: image,
+                        width: 34,
+                        height: 48,
+                        filterQuality: FilterQuality.medium,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$episode · $time',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontSize: 11,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (editing) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: '删除记录',
+                  onPressed: busy ? null : onDelete,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 36, minHeight: 36),
+                  icon: Icon(Icons.delete_outline_rounded,
+                      size: 18, color: colors.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 圆屏末尾操作行（同 logs_page 的末尾操作行套路）：视觉高 56 + 间距 8 = pitch 64。
+/// 「管理」进入编辑态（行尾出现删除按钮），编辑态下多出「清空」；返回键退出编辑态（PopScope）。
+class _WatchHistoryActions extends StatelessWidget {
+  const _WatchHistoryActions({
+    required this.count,
+    required this.editing,
+    required this.busy,
+    required this.onToggleEditing,
+    required this.onClear,
+  });
+
+  final int count;
+  final bool editing;
+  final bool busy;
+  final VoidCallback onToggleEditing;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                editing ? '点按行尾按钮删除' : '共 $count 条记录',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontSize: 11,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: editing ? '完成' : '管理历史记录',
+              onPressed: onToggleEditing,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: Icon(editing ? Icons.done_rounded : Icons.edit_outlined,
+                  size: 18),
+            ),
+            if (editing)
+              IconButton(
+                tooltip: '清空全部历史记录',
+                onPressed: busy ? null : onClear,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: Icon(Icons.delete_sweep_outlined,
+                    size: 18, color: colors.error),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

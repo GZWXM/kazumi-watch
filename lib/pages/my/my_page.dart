@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
-import 'package:kazumi/bean/appbar/sys_app_bar.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:kazumi/pages/my/my_space_view.dart';
@@ -50,6 +50,9 @@ class _MyPageState extends State<MyPage> {
     }
   }
 
+  // 每个 MyDestination 都必须在 MySpaceView.rows 里有对应的一行（当前 9 个：
+  // theme/player/danmaku/rules/history/downloads/sync/storage/about）。
+  // 枚举新增值时这里的 switch 会因不穷尽而编译失败，但 rows 不会——两边要一起改。
   void _open(MyDestination destination) =>
       context.pushNamed(switch (destination) {
         MyDestination.theme => '/settings/theme',
@@ -65,34 +68,12 @@ class _MyPageState extends State<MyPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: SysAppBar(
-        toolbarHeight: 72,
-        title: Text(
-          '我的',
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        needTopOffset: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: MySettingsButton(
-              onTap: () => context.pushNamed('/settings/'),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Observer(
-          builder: (context) => MySpaceView(
-            stats: widget.controller.watchStats,
-            onOpen: _open,
-          ),
+    return WatchScaffold(
+      title: '我的',
+      child: Observer(
+        builder: (context) => MySpaceView(
+          stats: widget.controller.watchStats,
+          onOpen: _open,
         ),
       ),
     );
