@@ -5,8 +5,11 @@ import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
 import 'package:kazumi/bean/settings/settings_list.dart';
 import 'package:kazumi/bean/widget/content_section.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/pages/settings/player_settings.dart';
 import 'package:kazumi/utils/constants.dart';
+import 'package:kazumi/utils/device.dart';
 
 class _SettingsCategory {
   const _SettingsCategory({
@@ -216,9 +219,38 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth > LayoutBreakpoint.compact['width']!;
-      return NavigatorPopHandler<Object?>(
-        onPopWithResult: (_) => _goBack(),
-        child: Scaffold(
+      // 圆屏：索引页与各子页各自带 WatchScaffold（含自己的顶部 44 / 底部保留区内缩），
+      // 这里再包一层 Scaffold + SafeArea 会出现双层内缩把内容压扁，所以圆屏只留路由容器。
+      // wide 与 round 互斥（233dp 圆屏必然窄于 compact 断点），宽屏双栏逻辑不受影响。
+      final round = isRoundWatch(MediaQuery.sizeOf(context));
+
+      final pane = SettingsPaneScope(
+        embedded: wide,
+        showBackButton: _isSecondaryRoute,
+        onBack: _goBack,
+        child: NotificationListener<_SettingsCategorySelected>(
+          onNotification: (notification) {
+            _pushCategory(notification.path);
+            return true;
+          },
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              pageTransitionsTheme: settingsPageTransitionsTheme,
+            ),
+            child: RouterOutlet(key: _outletKey),
+          ),
+        ),
+      );
+
+      Widget body;
+      if (round) {
+        // 只给背景与 Material 祖先：不加 SafeArea/appBar，避免和 WatchScaffold 的内缩叠加。
+        body = Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: pane,
+        );
+      } else {
+        body = Scaffold(
           appBar: wide
               ? SysAppBar(
                   title: const Text('设置'),
@@ -242,29 +274,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
-                Expanded(
-                  child: SettingsPaneScope(
-                    embedded: wide,
-                    showBackButton: _isSecondaryRoute,
-                    onBack: _goBack,
-                    child: NotificationListener<_SettingsCategorySelected>(
-                      onNotification: (notification) {
-                        _pushCategory(notification.path);
-                        return true;
-                      },
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          pageTransitionsTheme: settingsPageTransitionsTheme,
-                        ),
-                        child: RouterOutlet(key: _outletKey),
-                      ),
-                    ),
-                  ),
-                ),
+                Expanded(child: pane),
               ],
             ),
           ),
-        ),
+        );
+      }
+
+      return NavigatorPopHandler<Object?>(
+        onPopWithResult: (_) => _goBack(),
+        child: body,
       );
     });
   }
@@ -278,6 +297,22 @@ class SettingsIndexPage extends StatelessWidget {
     if (SettingsPaneScope.of(context)?.embedded ?? false) {
       return const PlayerSettingsPage();
     }
+    // 圆屏：整屏交给 WatchBandList（圆弦内缩只由它负责），标题带由 WatchScaffold 画。
+    // 手机分支保持原来的 Scaffold + 分组卡片。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return WatchScaffold(
+        title: '设置',
+        leading: IconButton(
+          onPressed: () {
+            if (!context.maybePop()) context.navigate('/tab/my');
+          },
+          icon: const Icon(Icons.arrow_back),
+        ),
+        child: _SettingsBandMenu(
+          onSelect: (path) => _SettingsCategorySelected(path).dispatch(context),
+        ),
+      );
+    }
     return Scaffold(
       appBar: SysAppBar(
         title: const Text('设置'),
@@ -288,6 +323,94 @@ class SettingsIndexPage extends StatelessWidget {
       body: _SettingsMenu(
         wide: false,
         onSelect: (path) => _SettingsCategorySelected(path).dispatch(context),
+      ),
+    );
+  }
+}
+
+/// 圆屏菜单的一个槽位：分组标题或分类行（WatchBandList 需要「槽位等距/可上报高度」的扁平列表）。
+class _BandSlot {
+  const _BandSlot.group(this.groupTitle) : category = null;
+
+  const _BandSlot.category(this.category) : groupTitle = null;
+
+  final String? groupTitle;
+  final _SettingsCategory? category;
+
+  bool get isGroup => category == null;
+}
+
+/// 圆屏设置菜单：把 _settingsGroups 的分组标题 + 分类行拉平成一个 WatchBandList。
+/// 分类行数据仍来自 _settingsGroups（单一数据源），所以每个分类的路由都可达。
+class _SettingsBandMenu extends StatelessWidget {
+  const _SettingsBandMenu({required this.onSelect});
+
+  final ValueChanged<String> onSelect;
+
+  /// 分组标题槽位高度（视觉高 28 + 间距 8）：比分类行矮，视觉上区分「组」。
+  /// 必须用 extentOf 上报，否则标题之后的每一行 yTop 会按 pitch 近似算错、圆弦内缩整体偏移。
+  static const double _groupSlotHeight = 36;
+
+  /// 分类行槽位高度，与 WatchBandList 的 pitch 一致（WatchRow 自带 44 + 底部 8）。
+  static const double _rowSlotHeight = 52;
+
+  @override
+  Widget build(BuildContext context) {
+    final slots = <_BandSlot>[
+      for (final group in _settingsGroups) ...[
+        _BandSlot.group(group.title),
+        for (final category in group.categories) _BandSlot.category(category),
+      ],
+    ];
+
+    return WatchBandList(
+      pitch: _rowSlotHeight,
+      itemCount: slots.length,
+      extentOf: (index) =>
+          slots[index].isGroup ? _groupSlotHeight : _rowSlotHeight,
+      itemBuilder: (context, index) {
+        final slot = slots[index];
+        if (slot.isGroup) {
+          return _BandGroupTitle(title: slot.groupTitle!);
+        }
+        final category = slot.category!;
+        // 横向内缩由 WatchBandList 负责，这里不再加任何水平 Padding。
+        return WatchRow(
+          icon: category.icon,
+          title: category.label,
+          onTap: () => onSelect(category.path),
+        );
+      },
+    );
+  }
+}
+
+class _BandGroupTitle extends StatelessWidget {
+  const _BandGroupTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      // 视觉高 28 + 底部 8 = 36，与 extentOf 上报的高度一致。
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 28,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontSize: 11,
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }
