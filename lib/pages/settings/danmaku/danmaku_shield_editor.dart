@@ -47,7 +47,7 @@ class _DanmakuShieldEditorState extends State<DanmakuShieldEditor> {
       context,
       title: '添加屏蔽规则',
       labelText: '关键词或 /正则表达式/',
-      hintText: '例如：前方高能 或 /^.*广告.*$/',
+      hintText: '例如：前方高能 或 /^.*广告.*\$/',
       helperText: '包含关键词的弹幕会被隐藏。用 / / 包裹正则表达式。',
       validator: (value) => (value ?? '').trim().isEmpty ? '请输入关键词' : null,
     );
