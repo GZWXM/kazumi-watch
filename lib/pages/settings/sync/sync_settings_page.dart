@@ -6,6 +6,7 @@ import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/pages/settings/sync/sync_settings_widgets.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/bangumi_sync_service.dart';
+import 'package:kazumi/utils/device.dart';
 
 enum _SyncStatus {
   unconnected('未连接', Icons.link_off_rounded),
@@ -156,9 +157,13 @@ class _SyncServiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 圆屏：这张卡在 SyncPageBody 的内容盒里只有 ~170dp，24dp 内边距会再吃掉 28%
+    // （正文只剩 122dp，两行变四行）⇒ 内边距 14、徽标 40/20、段间距收一档。
+    // 宽屏逐字未动。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(round ? 14 : 24),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(28),
@@ -170,8 +175,8 @@ class _SyncServiceCard extends StatelessWidget {
             children: [
               StateIconBadge(
                 icon: icon,
-                size: 56,
-                iconSize: 26,
+                size: round ? 40 : 56,
+                iconSize: round ? 20 : 26,
                 backgroundColor: color,
                 foregroundColor: onColor,
               ),
@@ -184,7 +189,7 @@ class _SyncServiceCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: round ? 12 : 20),
           Text(service,
               style: theme.textTheme.labelLarge
                   ?.copyWith(color: theme.colorScheme.primary)),
@@ -197,11 +202,11 @@ class _SyncServiceCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(description, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 16),
+          SizedBox(height: round ? 14 : 16),
           Text(content,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          const SizedBox(height: 24),
+          SizedBox(height: round ? 14 : 24),
           StateActionButton.tonal(
             onPressed: onPressed,
             text: action,
@@ -221,6 +226,10 @@ class _SyncStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    // 圆屏：卡片行留给状态胶囊的宽度只有 ~100dp
+    // （170 − 卡内边距 28 − 徽标 40 − 间距 12）⇒ 内边距/图标收一档，
+    // 文案单行省略，别把卡片首行顶到换行。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     final (background, foreground) = switch (status) {
       _SyncStatus.connectionError => (
           colors.errorContainer,
@@ -233,7 +242,8 @@ class _SyncStatusChip extends StatelessWidget {
       _ => (colors.surfaceContainerHighest, colors.onSurfaceVariant),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: EdgeInsets.symmetric(
+          horizontal: round ? 8 : 12, vertical: round ? 4 : 7),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(20),
@@ -241,10 +251,12 @@ class _SyncStatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(status.icon, size: 16, color: foreground),
+          Icon(status.icon, size: round ? 14 : 16, color: foreground),
           const SizedBox(width: 6),
           Flexible(
             child: Text(status.label,
+                maxLines: round ? 1 : null,
+                overflow: round ? TextOverflow.ellipsis : null,
                 style: Theme.of(context)
                     .textTheme
                     .labelMedium
