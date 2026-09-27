@@ -15,7 +15,6 @@ import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/search/search_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
-import 'package:kazumi/services/storage/settings_keys.dart';
 import 'package:kazumi/utils/constants.dart';      // part 文件（search_filter_sheet）要用
 import 'package:kazumi/utils/date_time.dart';       // 同上：formatDateTime
 import 'package:kazumi/utils/device.dart';          // 同上：isRoundWatch
@@ -281,7 +280,6 @@ class _SearchPageState extends State<SearchPage> {
               !watched.contains(item.id) && !abandoned.contains(item.id))
           .toList();
       final busy = _controller.isLoading;
-      final failed = _controller.isTimeOut;
       final submitted = SearchParser(_submittedQuery!).toFilterState();
       final summary = _filterSummary(submitted);
 

@@ -7,8 +7,6 @@ import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/pages/info/info_comments_view.dart';
 import 'package:kazumi/pages/info/character_page.dart';
-import 'package:kazumi/bean/card/character_card.dart';
-import 'package:kazumi/bean/card/staff_card.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/bangumi_relation.dart';
