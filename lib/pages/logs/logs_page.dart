@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
 
 class LogsPage extends StatefulWidget {
   const LogsPage({super.key});
@@ -160,16 +161,13 @@ class _LogsPageState extends State<LogsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const SysAppBar(
-        title: Text('日志'),
-      ),
-      body: buildBody,
-      floatingActionButton: buildFloatingButtons,
+    return WatchScaffold(
+      title: '日志',
+      child: _buildContent(),
     );
   }
 
-  Widget get buildBody {
+  Widget _buildContent() {
     if (_isLoading) {
       return const Center(
         child: LoadingIndicator(),
@@ -192,54 +190,101 @@ class _LogsPageState extends State<LogsPage> {
       );
     }
 
+    // Total items: log lines + 1 action row at the end
+    final totalItems = _logLines.length + 1;
+
     return SelectionArea(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width.clamp(600, double.infinity),
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16.0),
-            shrinkWrap: false,
-            itemCount: _logLines.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: Text(
-                  _logLines[index],
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                ),
-              );
-            },
+      child: WatchBandList(
+        controller: _scrollController,
+        itemCount: totalItems,
+        pitch: 44.0,   // 日志行与末行按钮统一 44dp 槽位；pitch 必须 ≥ 槽位高，否则行间重叠
+        itemBuilder: (context, index) {
+          if (index < _logLines.length) {
+            return _buildLogLine(index);
+          } else {
+            return _buildActionRow();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildLogLine(int index) {
+    final theme = Theme.of(context);
+    // 规范：monospace 12 → 11
+    return SizedBox(
+      height: 44, // 与 pitch 一致
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          _logLines[index],
+          softWrap: true, // Allow wrapping since no horizontal scroll
+          overflow: TextOverflow.visible,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
+          maxLines: 2,
         ),
       ),
     );
   }
 
-  Widget get buildFloatingButtons {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        FloatingActionButton(
-          heroTag: null,
-          onPressed: _clearLogs,
-          tooltip: '清空日志',
-          child: const Icon(Icons.clear_all),
+  Widget _buildActionRow() {
+    return SizedBox(
+      height: 44,
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TonalButton(
+              onPressed: _copyLogs,
+              child: const Icon(Icons.copy, size: 16),
+              label: '复制',
+            ),
+            const SizedBox(width: 8),
+            _TonalButton(
+              onPressed: _clearLogs,
+              child: const Icon(Icons.clear_all, size: 16),
+              label: '清空',
+            ),
+          ],
         ),
-        const SizedBox(width: 15),
-        FloatingActionButton(
-          heroTag: null,
-          onPressed: _copyLogs,
-          tooltip: '复制日志',
-          child: const Icon(Icons.copy),
-        ),
-      ],
+      ),
+    );
+  }
+}
+
+/// Helper widget for the tonal buttons in logs page
+class _TonalButton extends StatelessWidget {
+  const _TonalButton({
+    required this.onPressed,
+    required this.child,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final Widget child;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(76, 44), // Total width approx 160 with gap
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child,
+          const SizedBox(width: 4),
+          Text(label, style: theme.textTheme.labelMedium),
+        ],
+      ),
     );
   }
 }

@@ -11,10 +11,14 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/sync_priority.dart';
 import 'package:kazumi/modules/collect/collect_sync_plan.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
+import 'package:kazumi/modules/collect/collect_module.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/collect/collect_library_view.dart';
 import 'package:kazumi/pages/collect/collect_sync_dialog.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/bean/widget/watch_list.dart';
 
 class CollectPage extends StatefulWidget {
   const CollectPage({
@@ -96,6 +100,37 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    
+    if (isRoundWatch(size)) {
+      return WatchScaffold(
+        title: '追番',
+        leading: IconButton(
+          icon: const Icon(Icons.sync_rounded),
+          onPressed: _syncDialogOpen || _pendingIds.isNotEmpty ? null : _sync,
+        ),
+        child: Observer(
+          builder: (context) {
+            final entries = collectController.collectibles.toList();
+            return WatchBandList(
+              pitch: 68,
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                final item = entry.bangumiItem;
+                return WatchMediaRow(
+                  coverUrl: item.images['large'] ?? item.images['common'] ?? '',
+                  title: item.nameCn.isNotEmpty ? item.nameCn : item.name,
+                  meta: _getCollectMeta(entry),
+                  onTap: () => context.pushNamed('/info/', arguments: item),
+                );
+              },
+            );
+          },
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: SysAppBar(
         needTopOffset: false,
@@ -137,5 +172,17 @@ class _CollectPageState extends State<CollectPage> with KazumiDialogOwner {
         ),
       ),
     );
+  }
+
+  /// 收藏状态文案（对应 CollectType 1..5）
+  String? _getCollectMeta(CollectedBangumi entry) {
+    return switch (entry.type) {
+      1 => '在看',
+      2 => '想看',
+      3 => '搁置',
+      4 => '看过',
+      5 => '抛弃',
+      _ => null,
+    };
   }
 }

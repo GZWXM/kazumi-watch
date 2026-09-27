@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/utils/device.dart';
 
 const EdgeInsets materialBottomSheetContentPadding =
     EdgeInsets.fromLTRB(24, 0, 24, 24);
@@ -26,6 +27,62 @@ class MaterialBottomSheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final mq = MediaQuery.of(context);
+    
+    // Watch specific layout adjustments
+    if (isRoundWatch(mq.size)) {
+      return Padding(
+        padding: EdgeInsets.only(
+          top: mq.padding.top > 24 ? mq.padding.top : 24,
+          left: 12,
+          right: 12,
+          bottom: compact ? 8 : 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  trailing!,
+                ] else if (onClose != null) ...[
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: onClose,
+                    tooltip: '关闭',
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ],
+            ),
+            if (description != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                description!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 0, 24, compact ? 8 : 16),

@@ -68,7 +68,7 @@ class _LowMemoryModeDialogState extends State<_LowMemoryModeDialog> {
               Semantics(
                 liveRegion: true,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: enabled
                         ? colors.secondaryContainer

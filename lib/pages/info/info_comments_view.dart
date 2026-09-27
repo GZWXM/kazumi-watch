@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/card/comments_card.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/modules/bangumi/bangumi_interest.dart';
@@ -19,7 +20,6 @@ class InfoCommentsView extends StatelessWidget {
   });
 
   static const _writeReviewLabel = '下面我简单喵两句';
-  static const _maxWidth = 950.0;
 
   final BangumiInterest? interest;
   final List<CommentItem> comments;
@@ -62,98 +62,91 @@ class InfoCommentsView extends StatelessWidget {
     final hasReview = interest?.hasReviewContent ?? false;
     final showEmpty =
         hasLoaded && !isLoading && !hasError && comments.isEmpty && !hasReview;
-    return SafeArea(
-      top: false,
-      bottom: false,
-      child: LayoutBuilder(builder: (context, constraints) {
-        final gutter = ((constraints.maxWidth - _maxWidth) / 2)
-            .clamp(16.0, double.infinity);
-        return NotificationListener<ScrollEndNotification>(
-          onNotification: _onScrollEnd,
-          child: CustomScrollView(
-            key: const PageStorageKey<String>('吐槽'),
-            scrollBehavior: const ScrollBehavior().copyWith(scrollbars: false),
-            slivers: [
-              SliverOverlapInjector(
-                handle:
-                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+    // 圆屏：用核心带统一内缩，滚动内容按最窄带取值保证整屏可见
+    final bandInset = CircleInsets.insetOf(
+      const Rect.fromLTWH(0, CircleInsets.bodyTop, CircleInsets.screen, 140),
+    );
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: _onScrollEnd,
+      child: CustomScrollView(
+        key: const PageStorageKey<String>('吐槽'),
+        scrollBehavior: const ScrollBehavior().copyWith(scrollbars: false),
+        slivers: [
+          if (ownComment == null && !showEmpty)
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(bandInset, 12, bandInset, 8),
+              sliver: SliverToBoxAdapter(
+                child: _reviewEntry(context, editing: hasReview),
               ),
-              if (ownComment == null && !showEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: _reviewEntry(context, editing: hasReview),
-                  ),
+            ),
+          if (ownComment != null || comments.isNotEmpty)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: bandInset),
+              sliver: SliverList.separated(
+                addAutomaticKeepAlives: false,
+                itemCount: comments.length + (ownComment == null ? 0 : 1),
+                itemBuilder: (context, index) {
+                  if (ownComment != null && index == 0) {
+                    return _ownReview(ownComment);
+                  }
+                  return CommentsCard(
+                    commentItem:
+                        comments[index - (ownComment == null ? 0 : 1)],
+                  );
+                },
+                separatorBuilder: (_, __) => const Divider(
+                  thickness: 0.5,
+                  indent: 10,
+                  endIndent: 10,
                 ),
-              if (ownComment != null || comments.isNotEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: gutter),
-                  sliver: SliverList.separated(
-                    addAutomaticKeepAlives: false,
-                    itemCount: comments.length + (ownComment == null ? 0 : 1),
-                    itemBuilder: (context, index) {
-                      if (ownComment != null && index == 0) {
-                        return _ownReview(ownComment);
-                      }
-                      return CommentsCard(
-                        commentItem:
-                            comments[index - (ownComment == null ? 0 : 1)],
-                      );
-                    },
-                    separatorBuilder: (_, __) => const Divider(
-                      thickness: 0.5,
-                      indent: 10,
-                      endIndent: 10,
+              ),
+            )
+          else if (hasError)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: GeneralErrorWidget(
+                title: '评论加载失败',
+                errMsg: '请检查网络连接后重试。',
+                compact: true,
+                onRetry: onRetry,
+              ),
+            )
+          else if (showEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: GeneralEmptyState(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: '暂无吐槽',
+                compact: true,
+                actions: [
+                  TextButton(
+                    onPressed: onReviewTap,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 44),
                     ),
+                    child: const Text(_writeReviewLabel),
                   ),
-                )
-              else if (hasError)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: GeneralErrorWidget(
-                    title: '评论加载失败',
-                    errMsg: '请检查网络连接后重试。',
-                    onRetry: onRetry,
-                  ),
-                )
-              else if (showEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: GeneralEmptyState(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    title: '暂无吐槽',
-                    actions: [
-                      TextButton(
-                        onPressed: onReviewTap,
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                        ),
-                        child: const Text(_writeReviewLabel),
-                      ),
-                    ],
-                  ),
-                )
-              else if (isLoading || !hasLoaded)
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: gutter),
-                  sliver: SliverList.builder(
-                    itemCount: 4,
-                    itemBuilder: (_, __) => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: CommentsCard.bone(),
-                    ),
-                  ),
+                ],
+              ),
+            )
+          else if (isLoading || !hasLoaded)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: bandInset),
+              sliver: SliverList.builder(
+                itemCount: 4,
+                itemBuilder: (_, __) => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: CommentsCard.bone(),
                 ),
-              if (ownComment != null || comments.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 96 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                ),
-            ],
-          ),
-        );
-      }),
+              ),
+            ),
+          if (ownComment != null || comments.isNotEmpty)
+            const SliverToBoxAdapter(
+              // 底部保留区由 shell 注入，这里只留滚动呼吸空间
+              child: SizedBox(height: 96),
+            ),
+        ],
+      ),
     );
   }
 
@@ -162,11 +155,11 @@ class InfoCommentsView extends StatelessWidget {
     return TextButton(
       onPressed: onReviewTap,
       style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.all(16),
+        minimumSize: const Size(48, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         backgroundColor: colors.surfaceContainerLow,
         foregroundColor: colors.onSurfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
       child: Row(children: [
         Expanded(child: Text(editing ? '编辑' : _writeReviewLabel)),
@@ -178,7 +171,7 @@ class InfoCommentsView extends StatelessWidget {
 
   Widget _ownReview(CommentItem comment) {
     return Card.filled(
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         CommentsCard.own(commentItem: comment),
         Padding(
@@ -187,7 +180,7 @@ class InfoCommentsView extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: onReviewTap,
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 44)),
               child: const Text('编辑'),
             ),
           ),

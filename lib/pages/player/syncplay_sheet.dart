@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -5,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
+import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/dialog/material_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/split_list_row.dart';
 import 'package:kazumi/bean/widget/tonal_card.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/player/player_controller.dart';
 import 'package:kazumi/services/player/syncplay_endpoint.dart';
 import 'package:kazumi/services/storage/storage.dart';
@@ -96,6 +99,9 @@ class _SyncPlaySheetScaffold extends StatelessWidget {
     final bool compact =
         size.width > size.height && !isDesktop() && size.shortestSide < 600;
     final bool showDescription = !(compact && keyboardInset > 0);
+    // 圆表：本 sheet 由 showAdaptiveBottomSheet 的圆屏分支约束成 170dp 宽
+    // （adaptive_bottom_sheet.dart:47-52），左右内缩只有那一处 ⇒ 内部水平 padding 归零。
+    final bool round = isRoundWatch(size);
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardInset),
@@ -124,7 +130,9 @@ class _SyncPlaySheetScaffold extends StatelessWidget {
           ),
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: round
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 24),
               child: bodyBuilder(context, compact),
             ),
           ),
@@ -132,7 +140,9 @@ class _SyncPlaySheetScaffold extends StatelessWidget {
             const SizedBox(height: 12)
           else if (showCancel || primaryAction != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: round
+                  ? const EdgeInsets.fromLTRB(0, 12, 0, 12)
+                  : const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Row(
                 children: [
                   if (showCancel)
@@ -445,6 +455,29 @@ class _SyncPlayRoomSheetState extends State<_SyncPlayRoomSheet> {
 
   late String _createdRoom = _generateRoomNumber();
 
+  /// 房间号/昵称的校验：行内 TextFormField 与圆屏整屏编辑共用同一套规则。
+  static String? _validateRoom(String? value) {
+    final String text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return '请输入房间号';
+    }
+    if (!RegExp(r'^[0-9]{6,10}$').hasMatch(text)) {
+      return '房间号为 6-10 位数字';
+    }
+    return null;
+  }
+
+  static String? _validateUsername(String? value) {
+    final String text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return '请输入昵称';
+    }
+    if (!RegExp(r'^[a-zA-Z]{4,12}$').hasMatch(text)) {
+      return '昵称为 4-12 位英文字母';
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -463,7 +496,18 @@ class _SyncPlayRoomSheetState extends State<_SyncPlayRoomSheet> {
   }
 
   void _submit() {
-    if (!(_formKey.currentState?.validate() ?? false)) {
+    // 圆屏：房间号/昵称走整屏编辑（输入时就按同一套规则校验过），这里再兜一次底；
+    // 宽屏仍是原来的 Form 校验，逐字未动。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      final String? error = widget.isCreate
+          ? _validateUsername(_usernameController.text)
+          : (_validateRoom(_roomController.text) ??
+              _validateUsername(_usernameController.text));
+      if (error != null) {
+        KazumiDialog.showToast(message: error);
+        return;
+      }
+    } else if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
     final String username = _usernameController.text.trim();
@@ -532,7 +576,52 @@ class _SyncPlayRoomSheetState extends State<_SyncPlayRoomSheet> {
     );
   }
 
+  /// 圆表：整屏编辑房间号（校验不过就不关闭编辑页）。
+  Future<void> _editRoom() async {
+    final String? room = await showWatchTextEditor(
+      context,
+      title: '房间号',
+      initialValue: _roomController.text,
+      labelText: '房间号',
+      hintText: '6-10 位数字',
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      confirmText: '保存',
+      validator: _validateRoom,
+    );
+    if (room == null || !mounted) return;
+    setState(() => _roomController.text = room.trim());
+  }
+
+  /// 圆表：整屏编辑昵称（校验不过就不关闭编辑页）。
+  Future<void> _editUsername() async {
+    final String? name = await showWatchTextEditor(
+      context,
+      title: '昵称',
+      initialValue: _usernameController.text,
+      labelText: '昵称',
+      hintText: '4-12 位英文字母',
+      helperText: '房间内可见',
+      confirmText: '保存',
+      validator: _validateUsername,
+    );
+    if (name == null || !mounted) return;
+    setState(() => _usernameController.text = name.trim());
+  }
+
   Widget _buildRoomField() {
+    // 圆表：sheet 只有 170dp 宽，行内小输入框点不准 ⇒ 点一行弹整屏编辑
+    // （触区 ≥48dp，宽度由外层 sheet 唯一那一处内缩决定）。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      final String value = _roomController.text.trim();
+      return WatchInputRow(
+        label: '房间号',
+        value: value.isEmpty ? null : value,
+        hint: '点这里输入 6-10 位数字',
+        icon: Icons.dialpad_rounded,
+        onTap: _editRoom,
+      );
+    }
     return TextFormField(
       controller: _roomController,
       autofocus: true,
@@ -544,20 +633,22 @@ class _SyncPlayRoomSheetState extends State<_SyncPlayRoomSheet> {
         labelText: '房间号',
         hintText: '6-10 位数字',
       ),
-      validator: (value) {
-        final String text = (value ?? '').trim();
-        if (text.isEmpty) {
-          return '请输入房间号';
-        }
-        if (!RegExp(r'^[0-9]{6,10}$').hasMatch(text)) {
-          return '房间号为 6-10 位数字';
-        }
-        return null;
-      },
+      validator: _validateRoom,
     );
   }
 
   Widget _buildUsernameField({bool compact = false}) {
+    // 圆表：同上，改成「点一行 → 整屏编辑」。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      final String value = _usernameController.text.trim();
+      return WatchInputRow(
+        label: '昵称',
+        value: value.isEmpty ? null : value,
+        hint: '点这里输入 4-12 位字母',
+        icon: Icons.person_outline_rounded,
+        onTap: _editUsername,
+      );
+    }
     return TextFormField(
       controller: _usernameController,
       textInputAction: TextInputAction.done,
@@ -566,16 +657,7 @@ class _SyncPlayRoomSheetState extends State<_SyncPlayRoomSheet> {
         labelText: '昵称',
         helperText: compact ? null : '4-12 位英文字母，房间内可见',
       ),
-      validator: (value) {
-        final String text = (value ?? '').trim();
-        if (text.isEmpty) {
-          return '请输入昵称';
-        }
-        if (!RegExp(r'^[a-zA-Z]{4,12}$').hasMatch(text)) {
-          return '昵称为 4-12 位英文字母';
-        }
-        return null;
-      },
+      validator: _validateUsername,
       onFieldSubmitted: (_) => _submit(),
     );
   }
@@ -623,12 +705,42 @@ class _SyncPlayServerSheetState extends State<_SyncPlayServerSheet> {
     if (endPoint == _customOption) {
       endPoint = _customEndPointController.text.trim();
       if (parseSyncPlayEndPoint(endPoint) == null) {
-        setState(() => _customEndPointError = '地址格式为 host:port');
+        // 圆表没有行内输入框可贴错误文案，用 toast 顶替（否则用户看不到反馈、
+        // sheet 又关不掉 = 死路）。
+        if (isRoundWatch(MediaQuery.sizeOf(context))) {
+          KazumiDialog.showToast(message: '地址格式为 host:port');
+        } else {
+          setState(() => _customEndPointError = '地址格式为 host:port');
+        }
         return;
       }
     }
     GStorage.putSetting<String>(SettingsKeys.syncPlayEndPoint, endPoint);
     Navigator.of(context).pop();
+  }
+
+  /// 圆表：170dp 的 sheet 里行内小输入框点不准 ⇒ 点一行弹整屏编辑；
+  /// 校验与 [_save] 同一口径（parseSyncPlayEndPoint），通过才写回。
+  Future<void> _editCustomEndPoint() async {
+    final String? value = await showWatchTextEditor(
+      context,
+      title: '服务器地址',
+      initialValue: _customEndPointController.text,
+      labelText: '服务器地址',
+      hintText: 'example.com:8996',
+      keyboardType: TextInputType.url,
+      autocorrect: false,
+      confirmText: '保存',
+      validator: (input) =>
+          parseSyncPlayEndPoint((input ?? '').trim()) == null
+              ? '地址格式为 host:port'
+              : null,
+    );
+    if (value == null || !mounted) return;
+    setState(() {
+      _customEndPointController.text = value.trim();
+      _customEndPointError = null;
+    });
   }
 
   @override
@@ -656,22 +768,33 @@ class _SyncPlayServerSheetState extends State<_SyncPlayServerSheet> {
             ]),
             if (_selectedEndPoint == _customOption) ...[
               const SizedBox(height: 16),
-              TextField(
-                controller: _customEndPointController,
-                autofocus: _focusCustomEndPoint,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                decoration: _sheetInputDecoration(
-                  labelText: '服务器地址',
-                  hintText: 'example.com:8996',
-                  errorText: _customEndPointError,
+              if (isRoundWatch(MediaQuery.sizeOf(context)))
+                WatchInputRow(
+                  label: '服务器地址',
+                  value: _customEndPointController.text.trim().isEmpty
+                      ? null
+                      : _customEndPointController.text.trim(),
+                  hint: '点这里输入 host:port',
+                  icon: Icons.dns_rounded,
+                  onTap: _editCustomEndPoint,
+                )
+              else
+                TextField(
+                  controller: _customEndPointController,
+                  autofocus: _focusCustomEndPoint,
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  decoration: _sheetInputDecoration(
+                    labelText: '服务器地址',
+                    hintText: 'example.com:8996',
+                    errorText: _customEndPointError,
+                  ),
+                  onChanged: (_) {
+                    if (_customEndPointError != null) {
+                      setState(() => _customEndPointError = null);
+                    }
+                  },
                 ),
-                onChanged: (_) {
-                  if (_customEndPointError != null) {
-                    setState(() => _customEndPointError = null);
-                  }
-                },
-              ),
             ],
           ],
         );
@@ -701,11 +824,17 @@ class _SyncPlayServerSheetState extends State<_SyncPlayServerSheet> {
       trailing: selected
           ? Icon(Icons.check_rounded, color: colorScheme.primary)
           : null,
-      onTap: () => setState(() {
-        _selectedEndPoint = endPoint;
-        _customEndPointError = null;
-        _focusCustomEndPoint = isCustom;
-      }),
+      onTap: () {
+        // 圆表：勾「自定义服务器」后没有行内输入框可聚焦，直接弹整屏编辑。
+        final bool openEditor =
+            isCustom && isRoundWatch(MediaQuery.sizeOf(context));
+        setState(() {
+          _selectedEndPoint = endPoint;
+          _customEndPointError = null;
+          _focusCustomEndPoint = isCustom && !openEditor;
+        });
+        if (openEditor) unawaited(_editCustomEndPoint());
+      },
     );
   }
 }

@@ -10,9 +10,11 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/rule_card.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/plugin_editor/plugin_update_actions.dart';
 import 'package:kazumi/pages/plugin_editor/rule_dialogs.dart';
 import 'package:kazumi/pages/plugin_editor/rule_management_widgets.dart';
@@ -20,6 +22,7 @@ import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/plugin/plugin_import_parser.dart';
+import 'package:kazumi/utils/device.dart';
 
 class PluginViewPage extends StatefulWidget {
   const PluginViewPage({super.key, required this.controller});
@@ -59,6 +62,20 @@ class _PluginViewPageState extends State<PluginViewPage> {
     } catch (_) {
       if (mounted) setState(() => _catalogFailed = true);
     }
+  }
+
+  /// 圆表：233−2×31 里的一小段宽放不下好点的搜索框 ⇒ 点一行弹整屏编辑；
+  /// 清空内容再确认 = 显示全部（等价于原来的清除按钮）。
+  Future<void> _searchViaEditor() async {
+    final value = await showWatchTextEditor(
+      context,
+      title: '搜索规则',
+      initialValue: _search.text,
+      labelText: '关键词',
+      hintText: '规则名或站点，清空则显示全部',
+    );
+    if (value == null || !mounted) return;
+    setState(() => _search.text = value);
   }
 
   Future<void> _updateAll() async {
@@ -243,8 +260,17 @@ class _PluginViewPageState extends State<PluginViewPage> {
                       .toList();
                   final canReorder =
                       query.isEmpty && !_updatesOnly && !_selecting;
+                  // 圆表：横向内缩只留这一处 —— 取 body 带最窄处（y=44）的圆弦内缩
+                  // （≈31 ⇒ 行宽 171，是这条带的内接矩形）。底部只留 12 的呼吸：
+                  // 本页走 SettingsDetailScaffold → WatchScaffold，那 45dp（或 shell
+                  // 注入的 93）保留区已经由外层给了，这里再加就是双重保留。
+                  final round = isRoundWatch(MediaQuery.sizeOf(context));
+                  final double roundInset =
+                      CircleInsets.bandInset(CircleInsets.bodyTop);
                   return ReorderableListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    padding: round
+                        ? EdgeInsets.fromLTRB(roundInset, 12, roundInset, 12)
+                        : const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     buildDefaultDragHandles: false,
                     proxyDecorator: (child, index, animation) => Material(
                         elevation: 0, color: Colors.transparent, child: child),
@@ -274,19 +300,28 @@ class _PluginViewPageState extends State<PluginViewPage> {
                           ],
                         ),
                         const SizedBox(height: 20),
-                        TextField(
-                          controller: _search,
-                          onChanged: (_) => setState(() {}),
-                          decoration: ruleInputDecoration(context,
-                              hint: '搜索名称或站点',
-                              prefix: const Icon(Icons.search_rounded),
-                              suffix: query.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      tooltip: '清除搜索',
-                                      onPressed: () => setState(_search.clear),
-                                      icon: const Icon(Icons.close_rounded))),
-                        ),
+                        if (round)
+                          WatchInputRow(
+                            label: '搜索名称或站点',
+                            value: query.isEmpty ? null : _search.text,
+                            hint: '点这里输入关键词',
+                            icon: Icons.search_rounded,
+                            onTap: _searchViaEditor,
+                          )
+                        else
+                          TextField(
+                            controller: _search,
+                            onChanged: (_) => setState(() {}),
+                            decoration: ruleInputDecoration(context,
+                                hint: '搜索名称或站点',
+                                prefix: const Icon(Icons.search_rounded),
+                                suffix: query.isEmpty
+                                    ? null
+                                    : IconButton(
+                                        tooltip: '清除搜索',
+                                        onPressed: () => setState(_search.clear),
+                                        icon: const Icon(Icons.close_rounded))),
+                          ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
@@ -343,33 +378,27 @@ class _PluginViewPageState extends State<PluginViewPage> {
                         const SizedBox(height: 8),
                       ],
                     ),
-                    footer: visible.isEmpty
-                        ? GeneralEmptyState(
-                            icon: all.isEmpty
-                                ? Icons.extension_rounded
-                                : Icons.search_off_rounded,
-                            title: all.isEmpty
-                                ? '还没有安装规则'
-                                : _updatesOnly && query.isEmpty
+                    footer: all.isEmpty
+                        ? const GeneralEmptyState(
+                            icon: Icons.extension_rounded,
+                            title: '还没有安装规则',
+                          )
+                        : visible.isEmpty
+                            ? GeneralEmptyState(
+                                icon: Icons.search_off_rounded,
+                                title: _updatesOnly && query.isEmpty
                                     ? '没有可更新的规则'
                                     : '没有符合条件的规则',
-                            actions: [
-                              if (all.isEmpty)
-                                StateActionButton.tonal(
-                                    onPressed: () => context
-                                        .pushNamed('/settings/plugin/shop'),
-                                    icon: Icons.travel_explore_rounded,
-                                    text: '浏览规则仓库')
-                              else
-                                StateActionButton.tonal(
-                                    onPressed: () => setState(() {
-                                          _search.clear();
-                                          _updatesOnly = false;
-                                        }),
-                                    text: '显示全部规则'),
-                            ],
-                          )
-                        : null,
+                                actions: [
+                                  StateActionButton.tonal(
+                                      onPressed: () => setState(() {
+                                            _search.clear();
+                                            _updatesOnly = false;
+                                          }),
+                                      text: '显示全部规则'),
+                                ],
+                              )
+                            : null,
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
                       final plugin = visible[index];

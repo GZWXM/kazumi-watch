@@ -9,6 +9,7 @@ import 'package:kazumi/modules/bangumi/sync_priority.dart';
 import 'package:kazumi/pages/settings/sync/sync_settings_widgets.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/bangumi_sync_service.dart';
+import 'package:kazumi/utils/device.dart';
 
 enum _BangumiAction { verify, connect, sync }
 
@@ -31,6 +32,10 @@ class _BangumiSyncPageState extends State<BangumiSyncPage> {
   double? _progress;
 
   bool get _busy => _action != null || _bangumi.isConnecting;
+
+  /// 圆屏判定：外壳是 SettingsDetailScaffold→WatchScaffold，内容盒只剩 ~170dp。
+  /// ⚠️ 只在 build 路径里调用（MediaQuery.sizeOf 需要依赖注册）。
+  bool get _round => isRoundWatch(MediaQuery.sizeOf(context));
 
   @override
   void initState() {
@@ -191,9 +196,12 @@ class _BangumiSyncPageState extends State<BangumiSyncPage> {
                       leading: const Icon(Icons.tune_rounded),
                       title: const Text('同步偏好'),
                       subtitle: Text('状态冲突时：${priority.label}'),
-                      tilePadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 4),
-                      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      // 圆屏：内容盒 ~170dp，20dp 内边距 + 12dp 子项内边距叠起来只剩
+                      // ~126dp 给「以 Bangumi 为准」这类单选行 ⇒ 内外各收一档。
+                      tilePadding: EdgeInsets.symmetric(
+                          horizontal: _round ? 12 : 20, vertical: 4),
+                      childrenPadding: EdgeInsets.fromLTRB(
+                          _round ? 8 : 12, 0, _round ? 8 : 12, _round ? 8 : 12),
                       children: [
                         RadioGroup<BangumiSyncPriority>(
                           groupValue: priority,
@@ -273,7 +281,8 @@ class _BangumiSyncPageState extends State<BangumiSyncPage> {
           ),
           if (configured)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+              // 圆屏：左内缩与上面 SettingsSection 的圆屏口径对齐（16→12）。
+              padding: EdgeInsets.fromLTRB(_round ? 12 : 16, 4, 8, 0),
               child: Row(
                 children: [
                   Expanded(
@@ -303,8 +312,12 @@ class _BangumiSyncPageState extends State<BangumiSyncPage> {
           maintainState: true,
           shape: const Border(),
           collapsedShape: const Border(),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          // 圆屏：内容盒 ~170dp，这里 20dp 的内边距会再吃掉 24%（Access Token 框
+          // 只剩 122dp 宽）⇒ 收到 12；宽屏逐字未动。
+          tilePadding: EdgeInsets.symmetric(
+              horizontal: _round ? 12 : 20, vertical: 4),
+          childrenPadding: EdgeInsets.fromLTRB(
+              _round ? 12 : 20, 0, _round ? 12 : 20, _round ? 12 : 20),
           leading: const Icon(Icons.account_circle_outlined),
           title: Text(configured ? 'Bangumi 账号' : '连接 Bangumi 账号'),
           subtitle: Text(_bangumi.initialized
@@ -343,7 +356,7 @@ class _BangumiSyncPageState extends State<BangumiSyncPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: _round ? 12 : 16),
             Wrap(
               alignment: WrapAlignment.end,
               spacing: 12,

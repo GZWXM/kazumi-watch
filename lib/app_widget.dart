@@ -16,6 +16,7 @@ import 'package:kazumi/navigation.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/theme.dart';
+import 'package:kazumi/utils/watch_theme.dart';
 
 class AppWidget extends StatefulWidget {
   const AppWidget({super.key});
@@ -301,6 +302,11 @@ class _AppWidgetState extends State<AppWidget>
             ? oledDarkTheme(dynamicDarkTheme)
             : dynamicDarkTheme;
 
+        // 判定是否为圆表，并应用 watch 主题
+        final size = MediaQueryData.fromView(View.of(context)).size;
+        final isWatch = isRoundWatch(size);
+        ThemeData tune(ThemeData t) => isWatch ? watchTheme(t) : t;
+
         return MaterialApp.router(
           title: "Kazumi",
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -310,37 +316,15 @@ class _AppWidgetState extends State<AppWidget>
           ],
           locale: const Locale.fromSubtags(
               languageCode: 'zh', scriptCode: 'Hans', countryCode: "CN"),
-          theme: lightTheme,
-          darkTheme: effectiveDarkTheme,
+          theme: tune(lightTheme),
+          darkTheme: tune(effectiveDarkTheme),
           themeMode: themeProvider.themeMode,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           routerConfig: ModularApp.routerConfigOf(context),
-          // ── Wear OS 圆屏适配（全局）──
-          // 手表上屏幕是圆的：四角被裁 + 系统字号偏大。
-          // 这里统一收窄字号、并按圆的几何留出左右安全区，避免逐页改。
+          // 移除原有的常量安全区伪 padding 和 TextScaler.linear(0.72)
+          // MediaQuery 原样透传，由 WatchScaffold/CircleInsets 处理布局
           builder: (context, child) {
-            if (child == null) return const SizedBox.shrink();
-            final mq = MediaQuery.of(context);
-            final shortest = mq.size.shortestSide;
-            // 短边 < 300dp 视为手表（手机短边一般 >= 320dp）
-            if (shortest >= 300) return child;
-            // 圆屏内容别贴边：按圆的几何留一点点，但手表上要小（参考手表原生 App 的 6-8dp 量级）
-            // 用系统给出的安全区（和 Android 侧 windowInsetsPadding 一个道理），
-            // 而不是自己猜数值 —— 圆边的可用区域只有系统知道。
-            final side = mq.size.width;
-            final safe = (side * 0.1465).clamp(6.0, 12.0);
-            return MediaQuery(
-              data: mq.copyWith(
-                textScaler: const TextScaler.linear(0.72),
-                padding: EdgeInsets.fromLTRB(
-                  mq.padding.left > 0 ? mq.padding.left : safe,
-                  mq.padding.top > 0 ? mq.padding.top : 2,
-                  mq.padding.right > 0 ? mq.padding.right : safe,
-                  mq.padding.bottom > 0 ? mq.padding.bottom : 2,
-                ),
-              ),
-              child: child,
-            );
+            return child ?? const SizedBox.shrink();
           },
         );
       },

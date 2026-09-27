@@ -251,8 +251,14 @@ class _ThemeSettingsPageState extends State<ThemeSettingsPage> {
                 leading: Icons.palette_rounded,
                 enabled: !useDynamicColor,
                 onPressed: (_) async {
+                  // 圆表：9 个 70dp 色块在 233dp 屏上只能排成一竖列（内容宽 105dp =
+                  // 153 对话框宽 − 24×2 内边距），总高 ≈810dp，而整个对话框只有 185dp
+                  // 高（改前内容区可视仅 ≈89dp）；Wrap 自身不滚动 → 第 2 项起的配色
+                  // 全屏都点不到。仅在圆表让内容可滚动。
+                  final roundWatch = isRoundWatch(MediaQuery.sizeOf(context));
                   KazumiDialog.show(builder: (context) {
                     return AlertDialog(
+                      scrollable: roundWatch,
                       title: Text('配色方案'),
                       content: StatefulBuilder(builder:
                           (BuildContext context, StateSetter setState) {

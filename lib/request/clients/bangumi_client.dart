@@ -100,8 +100,10 @@ class BangumiClient {
   }
 
   bool _shouldSignProtectedMirrorRequest(String url, String method) {
+    // 同上：没凭据就别签名（签了也是无效签名 → 401）。
     final enableBangumiProxy =
-        GStorage.getSetting(SettingsKeys.enableBangumiProxy);
+        GStorage.getSetting(SettingsKeys.enableBangumiProxy) &&
+            bangumiMirrorAvailable;
     if (!enableBangumiProxy) {
       return false;
     }

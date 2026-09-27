@@ -8,6 +8,11 @@ import 'package:kazumi/pages/settings/sync/sync_settings_widgets.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/webdav.dart';
+import 'package:kazumi/utils/device.dart';
+
+/// 圆屏输入框内边距：把 OutlineInputBorder 文本框的触区从默认 ~56dp 抬到 ~62dp。
+/// 圆表上键盘是整屏 IME，输入框是这一页唯一的输入入口，宁可略微高一点。
+const EdgeInsets _roundFieldPadding = EdgeInsets.fromLTRB(10, 20, 10, 18);
 
 class WebDavServerPage extends StatefulWidget {
   const WebDavServerPage({super.key});
@@ -25,6 +30,10 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
   bool _busy = false;
   bool _failed = false;
   String? _message;
+
+  /// 圆屏判定：外壳是 SettingsDetailScaffold→WatchScaffold，内容盒只剩 ~170dp。
+  /// ⚠️ 只在 build 路径里调用（MediaQuery.sizeOf 需要依赖注册）。
+  bool get _round => isRoundWatch(MediaQuery.sizeOf(context));
 
   @override
   void initState() {
@@ -81,7 +90,9 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
                 description: '填写云盘或服务器提供的连接信息。',
               ),
               TonalCard(
-                padding: const EdgeInsets.all(20),
+                // 圆屏：170dp 内容盒里卡片内边距 20dp 会再吃掉 24%（输入框只剩 122dp 宽）
+                // ⇒ 收到 12；三个输入框的触区由 _roundFieldPadding 垫高。宽屏逐字未动。
+                padding: EdgeInsets.all(_round ? 12 : 20),
                 child: Form(
                   key: _formKey,
                   onChanged: () {
@@ -90,7 +101,7 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
                     }
                   },
                   child: Column(
-                    spacing: 20,
+                    spacing: _round ? 12 : 20,
                     children: [
                       TextFormField(
                         controller: _url,
@@ -98,11 +109,12 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
                         keyboardType: TextInputType.url,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: '服务器地址',
                           hintText: 'https://example.com/dav/',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                           errorMaxLines: 3,
+                          contentPadding: _round ? _roundFieldPadding : null,
                         ),
                         validator: (value) {
                           final uri = Uri.tryParse(value?.trim() ?? '');
@@ -119,9 +131,10 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
                         enabled: !_busy,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: '用户名',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          contentPadding: _round ? _roundFieldPadding : null,
                         ),
                       ),
                       TextFormField(
@@ -134,6 +147,7 @@ class _WebDavServerPageState extends State<WebDavServerPage> {
                         decoration: InputDecoration(
                           labelText: '密码或应用授权码',
                           border: const OutlineInputBorder(),
+                          contentPadding: _round ? _roundFieldPadding : null,
                           suffixIcon: IconButton(
                             tooltip: _passwordVisible ? '隐藏密码' : '显示密码',
                             onPressed: () => setState(
