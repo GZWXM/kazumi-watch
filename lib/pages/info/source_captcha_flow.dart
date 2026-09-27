@@ -118,6 +118,45 @@ class _VerifyDialogFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    // 圆表：这个框的 372 硬宽 + 左右各 24 的内容边距，在 233 屏上会被夹成
+    // 233−2×24−2×24 = 137dp 宽 —— 验证码图（minHeight 128）和输入框都挤在圆的
+    // 窄弦里，输入框点不准。圆屏改走整屏骨架：内容按「内接矩形」宽铺开，内缩只在
+    // 整屏骨架里那一处；宽屏逐字未动。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return WatchFullscreenDialog(
+        title: title,
+        onClose: () => KazumiDialog.dismiss(context: context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.verified_user_outlined,
+                    size: 18, color: colors.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    pluginName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: colors.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(description,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: colors.onSurfaceVariant)),
+            const SizedBox(height: 16),
+            child,
+            const SizedBox(height: 16),
+          ],
+        ),
+        actions: actions,
+      );
+    }
     return AlertDialog(
       scrollable: true,
       backgroundColor: colors.surfaceContainerHigh,

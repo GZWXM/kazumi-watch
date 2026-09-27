@@ -68,6 +68,20 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
     FocusScope.of(context).unfocus();
   }
 
+  /// 圆表：本 sheet 走 showAdaptiveBottomSheet 的圆屏分支后只有 170dp 宽
+  /// （再减左右各 24 的内边距只剩 122dp），小输入框点不准 ⇒ 点一行弹整屏编辑。
+  Future<void> _addTagViaEditor() async {
+    final tag = await showWatchTextEditor(
+      context,
+      title: '自定义标签',
+      labelText: '标签',
+      hintText: '例如：治愈、日常',
+      validator: (value) => (value ?? '').trim().isEmpty ? '请输入标签' : null,
+    );
+    if (tag == null || !mounted) return;
+    _addTag(tag);
+  }
+
   void _reset() {
     setState(() {
       _draft = SearchFilterState(id: _draft.id, keyword: _draft.keyword);
@@ -185,6 +199,10 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final colors = Theme.of(context).colorScheme;
+    // 圆表：sheet 内容由 showAdaptiveBottomSheet 的圆屏分支约束成 170dp 宽
+    // （adaptive_bottom_sheet.dart:47-52），左右内缩只有那一处 ⇒ 内部 padding 归零，
+    // 否则 170−48=122dp 的行会横向溢出、输入框也点不准。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     final dateSummary = _draft.season.isNotEmpty
         ? _draft.season
         : _draft.dateRange == null
@@ -202,7 +220,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               child: ListView(
             shrinkWrap: true,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+            padding: round
+                ? const EdgeInsets.fromLTRB(0, 8, 0, 16)
+                : const EdgeInsets.fromLTRB(24, 8, 24, 16),
             children: [
               if (_draft.isIdSearch)
                 ListTile(
@@ -251,18 +271,26 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                           ),
                       ])),
                   const SizedBox(height: 12),
-                  TextField(
-                    // Separate scroll offsets from the expansion's boolean state.
-                    key: const PageStorageKey('custom-tag-input'),
-                    controller: _tagController,
-                    textInputAction: TextInputAction.done,
-                    decoration: _fieldDecoration('自定义标签').copyWith(
-                        suffixIcon: IconButton(
-                            tooltip: '添加标签',
-                            onPressed: () => _addTag(_tagController.text),
-                            icon: const Icon(Icons.add_rounded))),
-                    onSubmitted: _addTag,
-                  ),
+                  if (round)
+                    WatchInputRow(
+                      label: '自定义标签',
+                      hint: '点这里输入标签',
+                      icon: Icons.add_rounded,
+                      onTap: _addTagViaEditor,
+                    )
+                  else
+                    TextField(
+                      // Separate scroll offsets from the expansion's boolean state.
+                      key: const PageStorageKey('custom-tag-input'),
+                      controller: _tagController,
+                      textInputAction: TextInputAction.done,
+                      decoration: _fieldDecoration('自定义标签').copyWith(
+                          suffixIcon: IconButton(
+                              tooltip: '添加标签',
+                              onPressed: () => _addTag(_tagController.text),
+                              icon: const Icon(Icons.add_rounded))),
+                      onSubmitted: _addTag,
+                    ),
                 ],
               ),
               Divider(height: 1, color: colors.outlineVariant),
@@ -394,7 +422,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
           )),
           if (!shortWindow)
             Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                padding: round
+                    ? const EdgeInsets.fromLTRB(0, 12, 0, 12)
+                    : const EdgeInsets.fromLTRB(24, 12, 24, 24),
                 child: Row(children: [
                   TextButton(onPressed: _reset, child: const Text('重置')),
                   const SizedBox(width: 16),

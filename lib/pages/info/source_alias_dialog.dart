@@ -34,7 +34,23 @@ void _showCustomKeywordDialog({
   }
 
   KazumiDialog.show(
-    builder: (context) => AlertDialog(
+    builder: (context) {
+      // 圆表：对话框盒只有 153×185（233 − insetPadding 40/24），标题+输入框+两枚
+      // 竖排动作 ≈350dp → 动作落到框外、命中测试以父盒为界 → 够不着；而且小输入框
+      // 在圆屏上本来就点不准 ⇒ 圆屏改整屏编辑（内缩只在整屏骨架里那一处）。
+      if (isRoundWatch(MediaQuery.sizeOf(context))) {
+        return WatchTextEditor(
+          title: '修改检索词',
+          initialValue: initialKeyword,
+          labelText: '检索关键词',
+          helperText: '仅检索来源：$sourceName',
+          confirmText: '检索',
+          validator: (value) =>
+              (value ?? '').trim().isEmpty ? '请输入检索关键词' : null,
+          onConfirmed: (value) => onSubmit(value.trim()),
+        );
+      }
+      return AlertDialog(
       // 圆表：对话框盒只有 153×185（233 − insetPadding 40/24），
       // 标题+输入框+两枚竖排动作 ≈350dp → 动作会落到框外、命中测试以父盒为界 → 够不着。
       // 与同库 _VerifyDialogFrame（source_captcha_flow.dart:122）同口径打开 scrollable。
@@ -66,7 +82,8 @@ void _showCustomKeywordDialog({
           child: const Text('检索'),
         ),
       ],
-    ),
+      );
+    },
   );
 }
 
@@ -122,6 +139,36 @@ class _AliasPickerDialogState extends State<_AliasPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // 圆表：560 的硬宽会被夹到 233−2×24=185，再减左右各 24 只剩 137dp 的行宽；
+    // 圆屏改走整屏骨架（内缩只在整屏骨架里那一处），行高按 ListTile 默认 ≥48dp。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return WatchFullscreenDialog(
+        title: '别名检索',
+        onClose: () => Navigator.of(context).maybePop(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '仅检索来源：${widget.sourceName}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < widget.aliases.length; index++)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: Text(widget.aliases[index]),
+                trailing: IconButton(
+                  onPressed: () => _confirmDelete(index),
+                  icon: const Icon(Icons.delete),
+                ),
+                onTap: () => widget.onAliasSelected(widget.aliases[index]),
+              ),
+          ],
+        ),
+      );
+    }
     return Dialog(
       clipBehavior: Clip.antiAlias,
       child: SizedBox(

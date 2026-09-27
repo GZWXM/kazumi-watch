@@ -21,6 +21,7 @@ import 'package:kazumi/pages/video/video_controller.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/player/video_details_sheet.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
@@ -1143,30 +1144,64 @@ class _PlayerItemState extends State<PlayerItem>
     });
   }
 
+  /// 圆表：Dialog 默认 insetPadding 40/24 → 盒宽只剩 185dp；圆屏收到 12dp，
+  /// 宽屏保持 Flutter 的默认值（逐字未动）。
+  EdgeInsets _roundAwareDialogInset(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const EdgeInsets.all(12)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24);
+
+  /// 圆表：列表型对话框压成 170×190 的圆内矩形；宽屏返回 null（不额外约束）。
+  BoxConstraints? _roundAwareDialogConstraints(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const BoxConstraints(maxWidth: 170, maxHeight: 190)
+          : null;
+
+  /// 圆表：列表型对话框内部边距（宽屏保持 24/16/24/8）。
+  EdgeInsets _roundAwareListPadding(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const EdgeInsets.fromLTRB(8, 12, 8, 8)
+          : const EdgeInsets.fromLTRB(24, 16, 24, 8);
+
   Future<void> showDanmakuSwitch() => dialogs.run((task) async {
         String keyword = videoPageController.title;
         final query = await task.show<String>(
-          builder: (context) => AlertDialog(
-            title: const Text('弹幕检索'),
-            content: TextFormField(
-              initialValue: keyword,
-              decoration: const InputDecoration(hintText: '番剧名'),
-              onChanged: (value) => keyword = value,
-              onFieldSubmitted: (value) =>
-                  KazumiDialog.dismiss(context: context, popWith: value),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => KazumiDialog.dismiss(context: context),
-                child: const Text('取消'),
+          builder: (context) {
+            // 圆表：153×185 的小框装不下标题+输入框+两枚竖排动作，小输入框在圆屏上
+            // 也点不准 ⇒ 整屏编辑（内缩只在整屏骨架里那一处）；确认即 pop 出文本。
+            if (isRoundWatch(MediaQuery.sizeOf(context))) {
+              return WatchTextEditor(
+                title: '弹幕检索',
+                initialValue: keyword,
+                labelText: '番剧名',
+                helperText: '用更完整的番剧名可缩小结果范围',
+                confirmText: '提交',
+                validator: (value) =>
+                    (value ?? '').trim().isEmpty ? '请输入番剧名' : null,
+              );
+            }
+            return AlertDialog(
+              title: const Text('弹幕检索'),
+              content: TextFormField(
+                initialValue: keyword,
+                decoration: const InputDecoration(hintText: '番剧名'),
+                onChanged: (value) => keyword = value,
+                onFieldSubmitted: (value) =>
+                    KazumiDialog.dismiss(context: context, popWith: value),
               ),
-              TextButton(
-                onPressed: () =>
-                    KazumiDialog.dismiss(context: context, popWith: keyword),
-                child: const Text('提交'),
-              ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => KazumiDialog.dismiss(context: context),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      KazumiDialog.dismiss(context: context, popWith: keyword),
+                  child: const Text('提交'),
+                ),
+              ],
+            );
+          },
         );
         final response = await task.loading(
           message: '弹幕检索中',
@@ -1178,6 +1213,8 @@ class _PlayerItemState extends State<PlayerItem>
         }
         final anime = await task.show<DanmakuSearchAnime>(
           builder: (context) => Dialog(
+            insetPadding: _roundAwareDialogInset(context),
+            constraints: _roundAwareDialogConstraints(context),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: ListView(
@@ -1185,7 +1222,7 @@ class _PlayerItemState extends State<PlayerItem>
                 children: [
                   if (response.hasMore)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                      padding: _roundAwareListPadding(context),
                       child: Text(
                         '结果较多，仅显示部分条目，可补充更完整的番剧名缩小范围',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1218,6 +1255,8 @@ class _PlayerItemState extends State<PlayerItem>
         }
         final episode = await task.show<DanmakuEpisode>(
           builder: (context) => Dialog(
+            insetPadding: _roundAwareDialogInset(context),
+            constraints: _roundAwareDialogConstraints(context),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: ListView.builder(
