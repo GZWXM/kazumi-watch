@@ -5,11 +5,15 @@ class _TimelineWeekSelector extends StatelessWidget {
     required this.counts,
     this.todayIndex,
     this.isLoading = false,
+    this.selectedIndex,
+    this.onSelected,
   });
 
   final List<int> counts;
   final int? todayIndex;
   final bool isLoading;
+  final int? selectedIndex;
+  final ValueChanged<int>? onSelected;
 
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -21,6 +25,12 @@ class _TimelineWeekSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final scaler = MediaQuery.textScalerOf(context);
+    final size = MediaQuery.sizeOf(context);
+    
+    if (isRoundWatch(size)) {
+      return _buildWatchChips(context, colors, theme);
+    }
+
     return LayoutBuilder(builder: (context, constraints) {
       final minTabWidth = (scaler.scale(14) * 2 + 16).clamp(48.0, 112.0);
       final scrollable = constraints.maxWidth - 8 < minTabWidth * 7;
@@ -85,5 +95,54 @@ class _TimelineWeekSelector extends StatelessWidget {
         ),
       );
     });
+  }
+
+  Widget _buildWatchChips(BuildContext context, ColorScheme colors, ThemeData theme) {
+    // Horizontal scrolling chips for round watch
+    // Height 32, Font 11, Horizontal inset 21 (handled by parent scaffold/padding usually, but here we ensure width fits)
+    // The spec says: "y≈60 的横向 chips（7 个、11dp、高 32、水平内缩 21）"
+    // 这行不是 WatchBandList 的槽位（在列表之外），所以内缩必须自己按圆弦算：
+    // 芯片带占 y = bodyTop(44) .. bodyTop+32，中心 60 → bandInsetAtCenter(60) ≈ 21。
+    // 不加这层内缩时，横向列表从 x=0 起排，首个 chip 会被圆边裁掉一截。
+    final inset = CircleInsets.bandInsetAtCenter(CircleInsets.bodyTop + 16);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: inset),
+      child: SizedBox(
+        height: 32,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: 7,
+          itemBuilder: (context, index) {
+            final isSelected = selectedIndex == index;
+
+            return GestureDetector(
+              onTap: () => onSelected?.call(index),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected ? colors.primary : colors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '周${_weekdays[index]}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontSize: 11,
+                    color: isSelected
+                        ? colors.onPrimary
+                        : colors.onSurfaceVariant,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }

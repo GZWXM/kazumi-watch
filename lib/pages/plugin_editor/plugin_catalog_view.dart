@@ -4,15 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:kazumi/bean/card/rule_card.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/empty_state_widget.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/state_presentation.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/modules/plugin/plugin_http_module.dart';
 import 'package:kazumi/pages/plugin_editor/plugin_update_actions.dart';
 import 'package:kazumi/pages/plugin_editor/rule_management_widgets.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/device.dart';
 
 enum _CatalogSort { lastUpdate, name }
 
@@ -121,6 +124,20 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
     }
   }
 
+  /// 圆表：可用宽只有 233−2×31（或 170 的对话框）里的一小段，小搜索框点不准
+  /// ⇒ 点一行弹整屏编辑；清空内容再确认 = 显示全部（等价于原来的清除按钮）。
+  Future<void> _searchViaEditor() async {
+    final value = await showWatchTextEditor(
+      context,
+      title: '搜索规则',
+      initialValue: _search.text,
+      labelText: '关键词',
+      hintText: '规则名或作者，清空则显示全部',
+    );
+    if (value == null || !mounted) return;
+    setState(() => _search.text = value);
+  }
+
   List<PluginHTTPItem> _visibleItems() {
     final query = _search.text.trim().toLowerCase();
     final items = _controller.pluginHTTPList.where((item) {
@@ -164,6 +181,7 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
 
   Widget _header(int total, int installed, int updates) {
     final theme = Theme.of(context);
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (!widget._onboarding) ...[
         const RulePageIntro(
@@ -172,19 +190,28 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
           icon: Icons.travel_explore_rounded,
         ),
         const SizedBox(height: 20),
-        TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          decoration: ruleInputDecoration(context,
-              hint: '搜索规则或作者',
-              prefix: const Icon(Icons.search_rounded),
-              suffix: _search.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: '清除搜索',
-                      onPressed: () => setState(_search.clear),
-                      icon: const Icon(Icons.close_rounded))),
-        ),
+        if (round)
+          WatchInputRow(
+            label: '搜索规则或作者',
+            value: _search.text.trim().isEmpty ? null : _search.text,
+            hint: '点这里输入关键词',
+            icon: Icons.search_rounded,
+            onTap: _searchViaEditor,
+          )
+        else
+          TextField(
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            decoration: ruleInputDecoration(context,
+                hint: '搜索规则或作者',
+                prefix: const Icon(Icons.search_rounded),
+                suffix: _search.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清除搜索',
+                        onPressed: () => setState(_search.clear),
+                        icon: const Icon(Icons.close_rounded))),
+          ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -233,10 +260,12 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
   }
 
   Widget _emptyBody() {
+    // 圆表：48dp 内边距会把空态/加载态撑出 170dp 的内容盒。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     if (_loading) {
-      return const Padding(
-          padding: EdgeInsets.all(48),
-          child: Center(child: LoadingIndicator()));
+      return Padding(
+          padding: EdgeInsets.all(round ? 16 : 48),
+          child: const Center(child: LoadingIndicator()));
     }
     if (_loadFailed && _controller.pluginHTTPList.isEmpty) {
       final enabled = GStorage.getSetting(SettingsKeys.enableGitProxy);
@@ -264,7 +293,12 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
   }
 
   @override
-  Widget build(BuildContext context) => Observer(builder: (context) {
+  Widget build(BuildContext context) {
+    // 圆表：本视图挂在独立路由（plugin_shop_page → Scaffold + SysAppBar）下，
+    // 拿不到 watch shell 注入的 93 底部安全区，横向上也只允许一处内缩。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
+    final double roundInset = CircleInsets.bandInset(CircleInsets.bodyTop);
+    return Observer(builder: (context) {
         final colors = Theme.of(context).colorScheme;
         final catalog = _controller.pluginHTTPList.toList();
         final installed = catalog
@@ -278,9 +312,14 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
         final items = _visibleItems();
         final slivers = <Widget>[
           SliverPadding(
+            // 圆表：横向内缩只留这一处 —— 取 body 带最窄处（y=44）的圆弦内缩
+            // （≈31 ⇒ 行宽 171，是这条带的内接矩形，宁可内接也不铺满裁边）；
+            // 底部补到 45，替代拿不到的 shell 93 注入。
             padding: widget._onboarding
                 ? EdgeInsets.zero
-                : const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                : (round
+                    ? EdgeInsets.fromLTRB(roundInset, 12, roundInset, 45)
+                    : const EdgeInsets.fromLTRB(16, 12, 16, 24)),
             sliver: SliverMainAxisGroup(slivers: [
               SliverToBoxAdapter(
                   child: _header(catalog.length, installed, updates)),
@@ -330,6 +369,7 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
               slivers: slivers,
             );
       });
+  }
 }
 
 class _CatalogRuleAction extends StatelessWidget {

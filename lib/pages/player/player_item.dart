@@ -6,7 +6,6 @@ import 'package:kazumi/pages/player/controller/player_super_resolution.dart';
 import 'package:kazumi/pages/player/player_panel_hold.dart';
 import 'package:kazumi/pages/player/player_pointer_interaction.dart';
 import 'package:kazumi/pages/player/player_screenshot_feedback_overlay.dart';
-import 'package:kazumi/pages/player/smallest_player_item_panel.dart';
 import 'package:kazumi/pages/player/syncplay_sheet.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/services/logging/logger.dart';
@@ -22,6 +21,7 @@ import 'package:kazumi/pages/video/video_controller.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/player/video_details_sheet.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
@@ -37,7 +37,6 @@ import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:kazumi/services/player/audio_controller.dart';
 import 'package:kazumi/utils/device.dart';
-import 'package:kazumi/services/platform/display_mode_service.dart';
 import 'package:kazumi/services/platform/player_menu_service.dart';
 
 class PlayerItem extends StatefulWidget {
@@ -45,9 +44,8 @@ class PlayerItem extends StatefulWidget {
     super.key,
     required this.playerController,
     required this.videoPageController,
-    required this.toggleMenu,
-    required this.showMenuImmediately,
-    required this.hideMenuImmediately,
+    required this.fillsWindow,
+    this.onToggleSidePanel,
     required this.changeEpisode,
     required this.onBackPressed,
     required this.keyboardFocus,
@@ -57,12 +55,11 @@ class PlayerItem extends StatefulWidget {
 
   final PlayerController playerController;
   final VideoPageController videoPageController;
-  final VoidCallback toggleMenu;
-  final VoidCallback showMenuImmediately;
-  final VoidCallback hideMenuImmediately;
+  final bool fillsWindow;
+  final VoidCallback? onToggleSidePanel;
   final Future<void> Function(int episode, {int currentRoad, int offset})
       changeEpisode;
-  final void Function(BuildContext) onBackPressed;
+  final VoidCallback onBackPressed;
   final FocusNode keyboardFocus;
   final bool disableAnimations;
   final VoidCallback pauseForTimedShutdown;
@@ -94,7 +91,12 @@ class _PlayerItemState extends State<PlayerItem>
   final _videoSurfaceKey = GlobalKey();
   late bool _border;
   late double _opacity;
-  late double _fontSize;
+  double get _fontSize => GStorage.getSetting(
+        SettingsKeys.danmakuFontSize,
+        context: SettingContext(
+          compactLayout: MediaQuery.sizeOf(context).shortestSide < 600,
+        ),
+      );
   late double _danmakuArea;
   late bool _hideTop;
   late bool _hideBottom;
@@ -245,7 +247,7 @@ class _PlayerItemState extends State<PlayerItem>
     if (size.isEmpty) {
       return null;
     }
-    Rect rect = renderObject.localToGlobal(Offset.zero) & size;
+    Rect rect = Offset.zero & size;
     final int videoWidth = playerController.debug.playerWidth;
     final int videoHeight = playerController.debug.playerHeight;
     if (videoWidth > 0 && videoHeight > 0) {
@@ -259,6 +261,8 @@ class _PlayerItemState extends State<PlayerItem>
         height: videoHeight * scale,
       );
     }
+    // Convert the fitted video rectangle to window coordinates for native PiP.
+    rect = MatrixUtils.transformRect(renderObject.getTransformTo(null), rect);
     final double ratio = MediaQuery.devicePixelRatioOf(context);
     return Rect.fromLTRB(
       rect.left * ratio,
@@ -465,13 +469,9 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   void handleShortcutExitFullscreen() {
-    if (videoPageController.isFullscreen && !isTablet()) {
-      try {
-        playerController.danmaku.canvasController.clear();
-      } catch (_) {}
-      DisplayModeService.exitFullScreen();
-      videoPageController.isFullscreen = !videoPageController.isFullscreen;
-    } else if (!Platform.isMacOS) {
+    if (videoPageController.isFullscreen) {
+      unawaited(videoPageController.fullscreen.setFullscreen(false));
+    } else if (isDesktop() && !Platform.isMacOS) {
       playerController.pause();
       windowManager.hide();
     }
@@ -666,7 +666,7 @@ class _PlayerItemState extends State<PlayerItem>
     }
   }
 
-  void _handleFullscreenChange(BuildContext context) async {
+  void _handleFullscreenChange() async {
     playerController.panel.lockPanel = false;
     _releasePlayerPanelHolds();
     playerController.danmaku.canvasController.clear();
@@ -872,17 +872,9 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   void handleFullscreen() {
-    _handleFullscreenChange(context);
-    if (videoPageController.isFullscreen) {
-      DisplayModeService.exitFullScreen();
-      if (!isDesktop()) {
-        widget.showMenuImmediately();
-      }
-    } else {
-      DisplayModeService.enterFullScreen();
-      widget.hideMenuImmediately();
+    if (!videoPageController.isPip) {
+      unawaited(videoPageController.fullscreen.toggle());
     }
-    videoPageController.isFullscreen = !videoPageController.isFullscreen;
   }
 
   bool get _canHidePlayerPanel =>
@@ -1152,30 +1144,64 @@ class _PlayerItemState extends State<PlayerItem>
     });
   }
 
+  /// 圆表：Dialog 默认 insetPadding 40/24 → 盒宽只剩 185dp；圆屏收到 12dp，
+  /// 宽屏保持 Flutter 的默认值（逐字未动）。
+  EdgeInsets _roundAwareDialogInset(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const EdgeInsets.all(12)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24);
+
+  /// 圆表：列表型对话框压成 170×190 的圆内矩形；宽屏返回 null（不额外约束）。
+  BoxConstraints? _roundAwareDialogConstraints(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const BoxConstraints(maxWidth: 170, maxHeight: 190)
+          : null;
+
+  /// 圆表：列表型对话框内部边距（宽屏保持 24/16/24/8）。
+  EdgeInsets _roundAwareListPadding(BuildContext context) =>
+      isRoundWatch(MediaQuery.sizeOf(context))
+          ? const EdgeInsets.fromLTRB(8, 12, 8, 8)
+          : const EdgeInsets.fromLTRB(24, 16, 24, 8);
+
   Future<void> showDanmakuSwitch() => dialogs.run((task) async {
         String keyword = videoPageController.title;
         final query = await task.show<String>(
-          builder: (context) => AlertDialog(
-            title: const Text('弹幕检索'),
-            content: TextFormField(
-              initialValue: keyword,
-              decoration: const InputDecoration(hintText: '番剧名'),
-              onChanged: (value) => keyword = value,
-              onFieldSubmitted: (value) =>
-                  KazumiDialog.dismiss(context: context, popWith: value),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => KazumiDialog.dismiss(context: context),
-                child: const Text('取消'),
+          builder: (context) {
+            // 圆表：153×185 的小框装不下标题+输入框+两枚竖排动作，小输入框在圆屏上
+            // 也点不准 ⇒ 整屏编辑（内缩只在整屏骨架里那一处）；确认即 pop 出文本。
+            if (isRoundWatch(MediaQuery.sizeOf(context))) {
+              return WatchTextEditor(
+                title: '弹幕检索',
+                initialValue: keyword,
+                labelText: '番剧名',
+                helperText: '用更完整的番剧名可缩小结果范围',
+                confirmText: '提交',
+                validator: (value) =>
+                    (value ?? '').trim().isEmpty ? '请输入番剧名' : null,
+              );
+            }
+            return AlertDialog(
+              title: const Text('弹幕检索'),
+              content: TextFormField(
+                initialValue: keyword,
+                decoration: const InputDecoration(hintText: '番剧名'),
+                onChanged: (value) => keyword = value,
+                onFieldSubmitted: (value) =>
+                    KazumiDialog.dismiss(context: context, popWith: value),
               ),
-              TextButton(
-                onPressed: () =>
-                    KazumiDialog.dismiss(context: context, popWith: keyword),
-                child: const Text('提交'),
-              ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => KazumiDialog.dismiss(context: context),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      KazumiDialog.dismiss(context: context, popWith: keyword),
+                  child: const Text('提交'),
+                ),
+              ],
+            );
+          },
         );
         final response = await task.loading(
           message: '弹幕检索中',
@@ -1187,6 +1213,8 @@ class _PlayerItemState extends State<PlayerItem>
         }
         final anime = await task.show<DanmakuSearchAnime>(
           builder: (context) => Dialog(
+            insetPadding: _roundAwareDialogInset(context),
+            constraints: _roundAwareDialogConstraints(context),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: ListView(
@@ -1194,7 +1222,7 @@ class _PlayerItemState extends State<PlayerItem>
                 children: [
                   if (response.hasMore)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                      padding: _roundAwareListPadding(context),
                       child: Text(
                         '结果较多，仅显示部分条目，可补充更完整的番剧名缩小范围',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1227,6 +1255,8 @@ class _PlayerItemState extends State<PlayerItem>
         }
         final episode = await task.show<DanmakuEpisode>(
           builder: (context) => Dialog(
+            insetPadding: _roundAwareDialogInset(context),
+            constraints: _roundAwareDialogConstraints(context),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: ListView.builder(
@@ -1266,22 +1296,6 @@ class _PlayerItemState extends State<PlayerItem>
     );
   }
 
-  bool _needsFullPanel(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    if (size.width < LayoutBreakpoint.compact['width']!) {
-      return false;
-    }
-    if (videoPageController.isPip) {
-      return false;
-    }
-    if (!isDesktop() &&
-        size.height > LayoutBreakpoint.compact['height']! &&
-        size.width < LayoutBreakpoint.medium['width']!) {
-      return false;
-    }
-    return true;
-  }
-
   @override
   void onWindowRestore() {
     playerController.danmaku.canvasController.clear();
@@ -1296,7 +1310,7 @@ class _PlayerItemState extends State<PlayerItem>
     _fullscreenListener = mobx.reaction<bool>(
       (_) => videoPageController.isFullscreen,
       (_) {
-        _handleFullscreenChange(context);
+        _handleFullscreenChange();
       },
     );
     _playerSizeListener = mobx.reaction<String>(
@@ -1354,10 +1368,6 @@ class _PlayerItemState extends State<PlayerItem>
     );
     _border = GStorage.getSetting(SettingsKeys.danmakuBorder);
     _opacity = GStorage.getSetting(SettingsKeys.danmakuOpacity);
-    _fontSize = GStorage.getSetting(
-      SettingsKeys.danmakuFontSize,
-      context: SettingContext(compactLayout: isCompact()),
-    );
     _danmakuArea = GStorage.getSetting(SettingsKeys.danmakuArea);
     _hideTop = !GStorage.getSetting(SettingsKeys.danmakuTop);
     _hideBottom = !GStorage.getSetting(SettingsKeys.danmakuBottom);
@@ -1448,12 +1458,7 @@ class _PlayerItemState extends State<PlayerItem>
                     playerController.setVolume(volume);
                   }
                 },
-                child: SizedBox(
-                  height: videoPageController.isFullscreen ||
-                          videoPageController.isPip
-                      ? (MediaQuery.of(context).size.height)
-                      : (MediaQuery.of(context).size.width * 9.0 / (16.0)),
-                  width: MediaQuery.of(context).size.width,
+                child: SizedBox.expand(
                   child: Stack(alignment: Alignment.center, children: [
                     PlayerKeyboardShortcuts(
                       focusScopeNode: widget.keyboardFocus,
@@ -1526,14 +1531,7 @@ class _PlayerItemState extends State<PlayerItem>
                         height: double.infinity,
                       ),
                     ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: videoPageController.isFullscreen ||
-                              videoPageController.isPip
-                          ? MediaQuery.sizeOf(context).height
-                          : (MediaQuery.sizeOf(context).width * 9 / 16),
+                    Positioned.fill(
                       child: DanmakuScreen(
                         key: _danmuKey,
                         createdController: (DanmakuController e) {
@@ -1569,65 +1567,37 @@ class _PlayerItemState extends State<PlayerItem>
                     (Platform.isAndroid &&
                             (videoPageController.isPip || _pipEnterRequested))
                         ? const SizedBox.shrink()
-                        : (_needsFullPanel(context))
-                            ? PlayerItemPanel(
-                                playerController: playerController,
-                                videoPageController: videoPageController,
-                                onBackPressed: widget.onBackPressed,
-                                setPlaybackSpeed: setPlaybackSpeed,
-                                showDanmakuSwitch: showDanmakuSwitch,
-                                toggleMenu: widget.toggleMenu,
-                                handleFullscreen: handleFullscreen,
-                                enterAndroidPictureInPicture:
-                                    enterAndroidPictureInPicture,
-                                handleProgressBarDragStart:
-                                    handleProgressBarDragStart,
-                                handleProgressBarSeek: handleProgressBarSeek,
-                                handleSuperResolutionChange:
-                                    handleSuperResolutionChange,
-                                handlePreNextEpisode: handlePreNextEpisode,
-                                panelVisibilityController:
-                                    _panelVisibilityController,
-                                keyboardFocus: widget.keyboardFocus,
-                                acquirePlayerPanelHold: acquirePlayerPanelHold,
-                                onMenuVisibilityChanged:
-                                    _handlePlayerMenuVisibilityChanged,
-                                handleDanmaku: handleDanmaku,
-                                showVideoInfo: showVideoInfo,
-                                showSyncPlayPanel: showSyncPlayPanel,
-                                pauseForTimedShutdown:
-                                    widget.pauseForTimedShutdown,
-                                disableAnimations: widget.disableAnimations,
-                                handleScreenShot: handleScreenshot,
-                                skipOP: skipOP,
-                              )
-                            : SmallestPlayerItemPanel(
-                                playerController: playerController,
-                                videoPageController: videoPageController,
-                                onBackPressed: widget.onBackPressed,
-                                setPlaybackSpeed: setPlaybackSpeed,
-                                showDanmakuSwitch: showDanmakuSwitch,
-                                handleFullscreen: handleFullscreen,
-                                enterAndroidPictureInPicture:
-                                    enterAndroidPictureInPicture,
-                                handleProgressBarDragStart:
-                                    handleProgressBarDragStart,
-                                handleProgressBarSeek: handleProgressBarSeek,
-                                handleSuperResolutionChange:
-                                    handleSuperResolutionChange,
-                                panelVisibilityController:
-                                    _panelVisibilityController,
-                                acquirePlayerPanelHold: acquirePlayerPanelHold,
-                                onMenuVisibilityChanged:
-                                    _handlePlayerMenuVisibilityChanged,
-                                handleDanmaku: handleDanmaku,
-                                showVideoInfo: showVideoInfo,
-                                showSyncPlayPanel: showSyncPlayPanel,
-                                pauseForTimedShutdown:
-                                    widget.pauseForTimedShutdown,
-                                disableAnimations: widget.disableAnimations,
-                                skipOP: skipOP,
-                              ),
+                        : PlayerItemPanel(
+                            fillsWindow: widget.fillsWindow,
+                            playerController: playerController,
+                            videoPageController: videoPageController,
+                            onBackPressed: widget.onBackPressed,
+                            setPlaybackSpeed: setPlaybackSpeed,
+                            showDanmakuSwitch: showDanmakuSwitch,
+                            onToggleSidePanel: widget.onToggleSidePanel,
+                            handleFullscreen: handleFullscreen,
+                            enterAndroidPictureInPicture:
+                                enterAndroidPictureInPicture,
+                            handleProgressBarDragStart:
+                                handleProgressBarDragStart,
+                            handleProgressBarSeek: handleProgressBarSeek,
+                            handleSuperResolutionChange:
+                                handleSuperResolutionChange,
+                            onNextEpisode: () => handlePreNextEpisode('next'),
+                            panelVisibilityController:
+                                _panelVisibilityController,
+                            keyboardFocus: widget.keyboardFocus,
+                            acquirePlayerPanelHold: acquirePlayerPanelHold,
+                            onMenuVisibilityChanged:
+                                _handlePlayerMenuVisibilityChanged,
+                            handleDanmaku: handleDanmaku,
+                            showVideoInfo: showVideoInfo,
+                            showSyncPlayPanel: showSyncPlayPanel,
+                            pauseForTimedShutdown: widget.pauseForTimedShutdown,
+                            disableAnimations: widget.disableAnimations,
+                            handleScreenShot: handleScreenshot,
+                            skipOP: skipOP,
+                          ),
                     Positioned.fill(
                       left: 16,
                       top: 25,

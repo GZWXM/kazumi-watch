@@ -7,6 +7,7 @@ import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/navigation.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/pages/router.dart';
+import 'package:kazumi/utils/device.dart';
 
 class ScaffoldMenu extends StatefulWidget {
   const ScaffoldMenu({super.key, required this.location});
@@ -119,7 +120,11 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     );
   }
 
-  Widget _outlet(BuildContext context, {BorderRadius? borderRadius}) {
+  Widget _outlet(
+    BuildContext context, {
+    BorderRadius? borderRadius,
+    bool paintBackground = true,
+  }) {
     Widget child = NotificationListener<NavigationNotification>(
       // A non-poppable outlet must not override the shell's PopScope state.
       onNotification: (notification) => !notification.canHandlePop,
@@ -127,6 +132,11 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     );
     if (borderRadius != null) {
       child = ClipRRect(borderRadius: borderRadius, child: child);
+    }
+    if (!paintBackground) {
+      // 底部悬浮导航：内容层不铺不透明底色，否则底部会在内容之外露出一整块
+      // 实色（用户口中的「大黑框」）。改由各页自己的背景直接铺满整屏。
+      return child;
     }
     return Container(
       decoration: BoxDecoration(
@@ -138,20 +148,26 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
   }
 
   Widget _bottomMenu(BuildContext context, int selectedIndex) {
-    // 圆形表盘：用弧形导航（方形 NavigationBar 的高 80dp 会顶出圆外被裁）
-    final size = MediaQuery.sizeOf(context);
-    final isRoundWatch = size.shortestSide < 400 &&
-        (size.width - size.height).abs() < size.width * 0.12;
-    if (isRoundWatch) {
+    final mq = MediaQuery.of(context);
+    final size = mq.size;
+    
+    // 使用统一的设备判定
+    if (isRoundWatch(size)) {
       return Scaffold(
         body: Stack(
           children: [
-            _outlet(context),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 104,
+            // 内容铺满整屏（不再注入 padding.bottom 把可视区切掉），导航栏悬浮其上——
+            // 这才是「悬浮」的观感，底部也不会再露出一块内容之外的实色。
+            // 底部预留改由 WatchNavReserve 透传，只有列表自己用 contentPadding
+            // 消费它（见 WatchBandList），保证最后一项能完整滚出而非停在按钮背后。
+            Positioned.fill(
+              child: WatchNavReserve(
+                bottom: CurvedNavBar.reserveBottom,
+                child: _outlet(context, paintBackground: false),
+              ),
+            ),
+            // 导航栏覆盖在全屏上，但只有图标区域响应点击
+            Positioned.fill(
               child: CurvedNavBar(
                 selectedIndex: selectedIndex,
                 onSelected: _selectDestination,
@@ -183,6 +199,8 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
         ),
       );
     }
+    
+    // 手机分支保持原样
     return Scaffold(
       body: _outlet(context),
       bottomNavigationBar: NavigationBar(

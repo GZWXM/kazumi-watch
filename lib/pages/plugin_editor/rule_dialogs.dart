@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
+import 'package:kazumi/bean/widget/watch_text_input.dart';
 import 'package:kazumi/pages/plugin_editor/rule_management_widgets.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/services/plugin/plugin_import_parser.dart';
+import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/encoding.dart';
 
 enum RuleAddSource { catalog, clipboard, file, create }
@@ -296,6 +298,17 @@ class _RuleDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    // 圆表：AlertDialog 的框只有 233−2×24=185 宽，内容再减左右各 24 只剩 137dp
+    // （480 的硬宽被夹到这里）——「规则内容」这类输入框根本点不准、动作也贴着圆边。
+    // 圆屏改走整屏骨架（内缩只在 WatchFullscreenDialog 里那一处）；宽屏逐字未动。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      return WatchFullscreenDialog(
+        title: title,
+        onClose: () => Navigator.of(context).maybePop(),
+        child: content,
+        actions: actions,
+      );
+    }
     return AlertDialog(
       backgroundColor: colors.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),

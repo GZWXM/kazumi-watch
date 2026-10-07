@@ -46,7 +46,7 @@ class MainActivity: AudioServiceActivity() {
     private var pipAspectHeight = 9
     private var pipSourceRect: Rect? = null
     private var inPipMode = false
-    private var androidFullscreen = false
+    private var systemBarsHidden = false
     private var originalWindowBackground: Drawable? = null
     private var windowBackgroundOverridden = false
 
@@ -83,7 +83,7 @@ class MainActivity: AudioServiceActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && androidFullscreen) {
+        if (hasFocus) {
             applySystemBarsState()
         }
     }
@@ -112,17 +112,12 @@ class MainActivity: AudioServiceActivity() {
                 } else {
                     result.error("INVALID_ARGUMENT", "URL and MIME type required", null)
                 }
-            } else if (call.method == "checkIfInMultiWindowMode") {
-                val isInMultiWindow = checkIfInMultiWindowMode()
-                result.success(isInMultiWindow)
             } else if (call.method == "getAndroidSdkVersion") {
                 val sdkVersion = getAndroidSdkVersion()
                 result.success(sdkVersion)
-            } else if (call.method == "enterFullscreen") {
-                enterAndroidFullscreen()
-                result.success(null)
-            } else if (call.method == "exitFullscreen") {
-                exitAndroidFullscreen()
+            } else if (call.method == "setSystemBarsHidden") {
+                systemBarsHidden = call.arguments as? Boolean ?: false
+                applySystemBarsState()
                 result.success(null)
             } else {
                 result.notImplemented()
@@ -181,26 +176,8 @@ class MainActivity: AudioServiceActivity() {
         startActivity(intent)
     }
 
-    private fun checkIfInMultiWindowMode(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            this.isInMultiWindowMode 
-        } else {
-            false 
-        }
-    }
-
     private fun getAndroidSdkVersion(): Int {
         return Build.VERSION.SDK_INT
-    }
-
-    private fun enterAndroidFullscreen() {
-        androidFullscreen = true
-        applySystemBarsState()
-    }
-
-    private fun exitAndroidFullscreen() {
-        androidFullscreen = false
-        applySystemBarsState()
     }
 
     // System bars belong to the full size window; replayed on leaving PiP.
@@ -209,12 +186,12 @@ class MainActivity: AudioServiceActivity() {
             return
         }
         // 圆形手表：让系统把内容垫进圆内安全区（等价于传统 View 的 fitsSystemWindows）。
-        // 非全屏时保持 true，圆边不会裁内容；全屏播放时才放开让视频铺满。
-        val isRoundWatch = resources.configuration.isScreenRound
-        val fitSystemWindows = !androidFullscreen && isRoundWatch
+        // 非圆表沿用上游行为（false，由 Flutter 侧自己处理 inset）。
+        // 注：上游已把「是否全屏」从本函数移出（系统栏归全尺寸窗口管），故不再有 androidFullscreen 参数。
+        val fitSystemWindows = resources.configuration.isScreenRound
         WindowCompat.setDecorFitsSystemWindows(window, fitSystemWindows)
         val controller = WindowCompat.getInsetsController(window, window.decorView)
-        if (androidFullscreen) {
+        if (systemBarsHidden) {
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())
@@ -223,24 +200,18 @@ class MainActivity: AudioServiceActivity() {
         }
     }
 
-    // Single entry point: the mode callback and the configuration change both
-    // route here, whichever the OEM delivers first.
+    // Either PiP callback may arrive first, depending on the device.
     private fun syncPictureInPictureMode() {
         val current = isInPictureInPictureMode
-        if (current == inPipMode) {
-            return
+        if (current != inPipMode) {
+            inPipMode = current
+            pipChannel?.invokeMethod("onModeChanged", mapOf("isInPipMode" to current))
+            refreshWindowBackground()
         }
-        inPipMode = current
-        pipChannel?.invokeMethod("onModeChanged", mapOf("isInPipMode" to current))
-        refreshWindowBackground()
-        if (!current) {
-            applySystemBarsState()
-        }
+        applySystemBarsState()
     }
 
-    // The window background shows through the Flutter surface while a resized
-    // surface has no frame yet, so the light theme would paint the picture in
-    // picture transition white.
+    // Cover the surface with black until Flutter renders the resized frame.
     private fun refreshWindowBackground() {
         val blackBackground = inPipMode || pipInPlayerPage
         if (blackBackground == windowBackgroundOverridden) {

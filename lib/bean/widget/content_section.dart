@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:kazumi/bean/widget/split_list_row.dart';
 import 'package:kazumi/bean/widget/tonal_card.dart';
+import 'package:kazumi/utils/device.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title, this.description});
@@ -64,20 +65,29 @@ class ContentSection extends StatelessWidget {
   final List<Widget>? _children;
 
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SectionHeader(
-              title: Text(title),
-              description: description == null ? null : Text(description!),
-            ),
+  Widget build(BuildContext context) {
+    final isWatch = isRoundWatch(MediaQuery.sizeOf(context));
+    // Watch 下：组内 padding 16->8, 组间间距 24->12 (这里体现为 Header 下方的 margin/padding 调整)
+    final headerBottomPadding = isWatch ? 8.0 : 16.0;
+    
+    // 对于非 group 模式，TonalCard 的 padding 也需要收敛
+    final cardPadding = isWatch ? const EdgeInsets.all(8) : padding;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, headerBottomPadding),
+          child: SectionHeader(
+            title: Text(title),
+            description: description == null ? null : Text(description!),
           ),
-          if (_children != null)
-            SplitListGroup(children: _children)
-          else
-            TonalCard(padding: padding, child: _child!),
-        ],
-      );
+        ),
+        if (_children != null)
+          SplitListGroup(children: _children)
+        else
+          TonalCard(padding: cardPadding, child: _child!),
+      ],
+    );
+  }
 }

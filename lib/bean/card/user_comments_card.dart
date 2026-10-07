@@ -207,7 +207,6 @@ class _CommentBody extends StatelessWidget {
               style: TextStyle(color: theme.colorScheme.onSurfaceVariant))
           : BBCodeWidget(
               bbcode: content,
-              textScaler: MediaQuery.textScalerOf(context),
             ),
     );
   }

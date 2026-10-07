@@ -1,18 +1,16 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 /// 圆形屏幕专用的弧形导航栏（Wear OS 风格）。
 ///
-/// 与 Material 的 [NavigationBar] 不同，这里把图标沿圆的**下缘**排布：
-/// 屏幕是圆的，方形栏的两端必然被裁掉，而弧形排布能天然避开圆角区域。
+/// 几何验算：
+/// - 弧心=屏心 (cx, cy)，半径 R=80。
+/// - 角度 θ ∈ {-54°, -18°, 18°, 54°} (相对正下方，即 y 轴正向)。
+///   x = cx + R*sin(θ), y = cy + R*cos(θ)。
+/// - 最外侧格（θ=54°）中心偏移 (64.7, 47.0)，格 44×44；角点到屏心 ≈110.8 < 116.5−5 ✓
+/// - 相邻格间距 2·80·sin18° ≈ 49.4 ≥ 44 ✓（触控格不重叠）
 ///
-/// ⚠️ 几何要点（踩过的坑）：
-///   位置必须**锚在容器底部**算，且 y 一律 ≤ 容器高 − itemSize/2。
-///   早先的写法是「圆心 + 半径 × sin(angle)」，其中圆心取容器的 h/2：
-///   在 menu.dart 给的 `Positioned(bottom:0, height:104)` 槽位里，算出来的
-///   y 是 114~146 —— **全部超出容器 → 整条导航栏看不见**。
-///   所以这里改成：中心项贴容器底，两侧沿弧上抬（drop = R(1−cos)）。
+/// 注意：容器需填满父级 (Positioned.fill)，以便获取正确的中心点。
 class CurvedNavBar extends StatelessWidget {
   const CurvedNavBar({
     super.key,
@@ -24,18 +22,23 @@ class CurvedNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  /// (未选中图标, 选中图标, 文字)
+  /// (未选中图标, 选中图标, 文字-已废弃但保留结构以防外部引用错误，实际不使用)
   final List<({IconData icon, IconData selectedIcon, String label})> items;
 
-  /// 图标在弧线上的跨度（度）。两侧各留出余量避免贴到圆边。
-  static const double _sweepDeg = 104;
+  static const double _radius = 80.0;
+  static const double _itemSize = 44.0;
+  static const double _iconSize = 22.0;
 
-  /// 弧所在半径（相对容器宽度）。越大弧越平、两侧越往外。
-  /// 0.34 是按 233dp 宽的圆屏调过的：最外侧项刚好落在圆内。
-  static const double _arcRadiusFactor = 0.34;
-
-  /// 每个图标格子的边长
-  static const double _itemSize = 40;
+  /// 导航栏在屏幕底部占据的高度。
+  ///
+  /// 语义：内容铺满整屏、导航栏悬浮其上时，列表末尾要留这么多可滚出的空间，
+  /// 保证最后一项能完整滚到导航栏「上方」而不是停在按钮背后。
+  /// 几何：最外侧格 θ=54°，中心 y = 116.5 + 80·cos54° ≈ 163.5，格半径 22，
+  /// 上沿 ≈ 141.5 → 预留 = 233 − 141.5 ≈ 91.5，向上取整 93。
+  static const double reserveBottom = 93.0;
+  
+  // 角度列表 (度)
+  static const List<double> _anglesDeg = [-54.0, -18.0, 18.0, 54.0];
 
   @override
   Widget build(BuildContext context) {
@@ -43,68 +46,109 @@ class CurvedNavBar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // menu.dart 用 Positioned.fill 提供全屏约束，约束中心即屏心
         final double w = constraints.maxWidth;
         final double h = constraints.maxHeight;
-
-        const double itemSize = _itemSize;
-        final double sweep = _sweepDeg * math.pi / 180;
-        final int n = items.length;
-
-        // 弧半径 + 中心项的基准 y（贴容器底，再留 2px 余量）
-        final double arcR = w * _arcRadiusFactor;
-        final double baseY = h - itemSize / 2 - 2;
+        
+        // 屏幕中心
+        final double cx = w / 2;
+        final double cy = h / 2;
 
         final List<Widget> children = [];
-        for (int i = 0; i < n; i++) {
-          // 从左到右均分：t ∈ [0,1]，off ∈ [−sweep/2, +sweep/2]
-          final double t = n == 1 ? 0.5 : i / (n - 1);
-          final double off = (t - 0.5) * sweep;
+        
+        // 确保 items 长度与 angles 匹配，如果不匹配则截断或跳过
+        final count = math.min(items.length, _anglesDeg.length);
 
-          final double x = w / 2 + arcR * math.sin(off);
-          // 两侧沿弧上抬：中心项最低，最外侧最高
-          final double y = baseY - arcR * (1 - math.cos(off));
+        for (int i = 0; i < count; i++) {
+          final double thetaRad = _anglesDeg[i] * math.pi / 180.0;
+          
+          // 相对于正下方的角度。
+          // 标准数学坐标: x = r cos(theta), y = r sin(theta).
+          // 这里定义: theta=0 为正下方 (y positive in screen coords? No, screen y goes down).
+          // 屏幕坐标系: x right, y down.
+          // 正下方意味着 x=cx, y=cy+R.
+          // 公式: x = cx + R * sin(theta), y = cy + R * cos(theta).
+          // 当 theta=0: x=cx, y=cy+R (Bottom). Correct.
+          // 当 theta=-54: x < cx, y < cy+R (Left-Bottom). Correct.
+          // 当 theta=54: x > cx, y < cy+R (Right-Bottom). Correct.
+          
+          final double x = cx + _radius * math.sin(thetaRad);
+          final double y = cy + _radius * math.cos(thetaRad);
 
           final bool sel = i == selectedIndex;
           final it = items[i];
 
+          // 背景色
+          final Color bgColor;
+          final Color iconColor;
+
+          if (sel) {
+            bgColor = scheme.primary;
+            iconColor = scheme.onPrimary;
+          } else {
+            bgColor = scheme.surfaceContainer.withValues(alpha: 0.85);
+            iconColor = scheme.onSurfaceVariant.withValues(alpha: 0.6);
+          }
+
           children.add(Positioned(
-            left: x - itemSize / 2,
-            top: y - itemSize / 2,
-            width: itemSize,
-            height: itemSize,
+            left: x - _itemSize / 2,
+            top: y - _itemSize / 2,
+            width: _itemSize,
+            height: _itemSize,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onSelected(i),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: bgColor,
+                ),
+                child: Center(
+                  child: Icon(
                     sel ? it.selectedIcon : it.icon,
-                    size: 18,
-                    color: sel ? scheme.primary : scheme.onSurfaceVariant,
+                    size: _iconSize,
+                    color: iconColor,
                   ),
-                  if (sel)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Text(
-                        it.label,
-                        style: TextStyle(fontSize: 8, color: scheme.primary),
-                        maxLines: 1,
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ));
         }
 
-        return SizedBox(
-          width: w,
-          height: h,
-          child: Stack(children: children),
+        // Stack 默认不拦截空白区域的命中测试，除非子组件有 opaque hit test
+        // 这里的 GestureDetector 是 opaque 的，只拦截圆圈区域
+        // 其他部分穿透到下面的列表
+        return Stack(
+          children: children,
         );
       },
     );
   }
+}
+
+/// 把「底部悬浮导航栏高度」透传给子树，供列表在自身的 contentPadding 里预留。
+///
+/// 之所以不用 MediaQuery.padding 承载：padding 是全屏通用信号，会在对话框、
+/// 底部弹窗、独立路由等处被无关组件读到，造成难以追踪的连锁内缩。这里用一个
+/// 专用信号，只有 [WatchBandList] 这类需要「末尾可滚出」的滚动容器消费它。
+class WatchNavReserve extends InheritedWidget {
+  const WatchNavReserve({
+    super.key,
+    required this.bottom,
+    required super.child,
+  });
+
+  /// 底部需要为导航栏留出的高度（0 = 当前没有底部导航）。
+  final double bottom;
+
+  static double bottomOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<WatchNavReserve>()
+            ?.bottom ??
+        0.0;
+  }
+
+  @override
+  bool updateShouldNotify(WatchNavReserve oldWidget) =>
+      oldWidget.bottom != bottom;
 }

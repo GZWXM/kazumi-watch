@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
+import 'package:kazumi/bean/widget/state_presentation.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/network/proxy_utils.dart';
 import 'package:kazumi/services/network/proxy_manager.dart';
 import 'package:kazumi/request/core/dio_factory.dart';
 import 'package:kazumi/request/core/network_config.dart';
+import 'package:kazumi/utils/device.dart';
 
 class ProxyEditorPage extends StatefulWidget {
   const ProxyEditorPage({super.key});
@@ -87,6 +89,11 @@ class _ProxyEditorPageState extends State<ProxyEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 圆表：SettingsDetailScaffold 的圆屏分支走 WatchScaffold，而 WatchScaffold
+    // 没有 floatingActionButton 参数 ⇒ FAB 在 233dp 圆屏上被整块丢掉，
+    // 「保存并测试」这个页面唯一的动作会变得点不到。所以圆表把动作放进 body 底部，
+    // 非圆屏保持原来的 extended FAB（逐字未动）。
+    final round = isRoundWatch(MediaQuery.sizeOf(context));
     return SettingsDetailScaffold(
       title: const Text('代理配置'),
       body: SingleChildScrollView(
@@ -104,6 +111,9 @@ class _ProxyEditorPageState extends State<ProxyEditorPage> {
                       labelText: '代理地址',
                       hintText: 'http://127.0.0.1:7890',
                       border: OutlineInputBorder(),
+                      // 校验失败文案「格式错误，请使用 http://host:port 格式」≈19 字，
+                      // 单行在 233dp 圆屏（可用 ≈169dp）必被裁掉；给 3 行即可读全。
+                      errorMaxLines: 3,
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -124,17 +134,27 @@ class _ProxyEditorPageState extends State<ProxyEditorPage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  if (round) ...[
+                    const SizedBox(height: 20),
+                    StateActionButton(
+                      onPressed: saveAndTest,
+                      text: '保存并测试',
+                      icon: Icons.save,
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: saveAndTest,
-        icon: const Icon(Icons.save),
-        label: const Text('保存并测试'),
-      ),
+      floatingActionButton: round
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: saveAndTest,
+              icon: const Icon(Icons.save),
+              label: const Text('保存并测试'),
+            ),
     );
   }
 }

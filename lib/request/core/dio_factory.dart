@@ -5,6 +5,7 @@ import 'package:kazumi/request/core/network_config.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/http_headers.dart';
+import 'package:kazumi/utils/bangumi_mirror_credentials.dart';
 
 class DioFactory {
   DioFactory._();
@@ -20,7 +21,7 @@ class DioFactory {
           'referer': '',
           'user-agent': getRandomUA(),
         },
-        interceptors: [_BangumiMirrorInterceptor()],
+        interceptors: [_BangumiMirrorInterceptor(), _BangumiFallbackInterceptor()],
       );
 
   static Dio get rulesRepoDio => _rulesRepoDio ??= _create(
@@ -95,8 +96,11 @@ class _BangumiMirrorInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // 没凭据时镜像必被 401 拒（见 bangumi_mirror_credentials.dart 的说明），
+    // 此时直接走官方接口，别把请求改写到镜像。
     final enableBangumiProxy =
-        GStorage.getSetting(SettingsKeys.enableBangumiProxy);
+        GStorage.getSetting(SettingsKeys.enableBangumiProxy) &&
+            bangumiMirrorAvailable;
     if (!enableBangumiProxy) {
       handler.next(options);
       return;
@@ -137,5 +141,50 @@ class _RulesMirrorInterceptor extends Interceptor {
     KazumiLogger().d('Rules mirror: $mirrored');
     options.path = mirrored;
     handler.next(options);
+  }
+}
+
+/// 官方 `api.bgm.tv` 连接失败（链路被断/超时）时自动降级到社区反代
+/// `api.bangumi.vip`（覆盖 `/v0/*` 与封面图，不含 `next.bgm.tv` 的 `/p1/*`）。
+/// 只在**连接类**错误上降级：4xx/5xx 说明链路是通的，不该换域名掩盖真实错误。
+class _BangumiFallbackInterceptor extends Interceptor {
+  static const _officialHost = 'api.bgm.tv';
+
+  bool _isConnectivityFailure(DioException err) {
+    switch (err.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  Future<void> onError(
+      DioException err, ErrorInterceptorHandler handler) async {
+    final uri = err.requestOptions.uri;
+    if (uri.host != _officialHost || !_isConnectivityFailure(err)) {
+      handler.next(err);
+      return;
+    }
+    final fallbackHost =
+        Uri.parse(ApiEndpoints.bangumiAPIFallbackDomain).host;
+    final fallbackUri = uri.replace(host: fallbackHost);
+    final options = err.requestOptions;
+    options.baseUrl = '';
+    options.path = fallbackUri.toString();
+    KazumiLogger().w('Bangumi fallback: $fallbackUri');
+    try {
+      final dio = DioFactory.createForConfig(NetworkConfig.fromSettings());
+      final response = await dio.fetch(options);
+      handler.resolve(response);
+    } on DioException catch (e) {
+      handler.next(e);
+    } catch (_) {
+      handler.next(err);
+    }
   }
 }

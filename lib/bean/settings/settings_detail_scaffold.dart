@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
+import 'package:kazumi/utils/device.dart';
 
 class SettingsPaneScope extends InheritedWidget {
   const SettingsPaneScope({
@@ -45,6 +47,40 @@ class SettingsDetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scope = SettingsPaneScope.of(context);
+    final mq = MediaQuery.of(context);
+
+    // Watch Branch
+    if (isRoundWatch(mq.size)) {
+      // Determine title string from widget if possible, else empty
+      String titleStr = '';
+      final titleWidget = title;        // 字段不能被 Dart 提升，先取局部变量再判型
+      if (titleWidget is Text) {
+        titleStr = titleWidget.data ?? '';
+      }
+
+      // Determine leading widget
+      Widget? watchLeading;
+      if (leading != null) {
+        watchLeading = leading;
+      } else if (scope != null && (scope.showBackButton || (ModalRoute.of(context)?.impliesAppBarDismissal ?? false))) {
+         watchLeading = IconButton(
+            onPressed: scope.onBack,
+            icon: const Icon(Icons.arrow_back),
+         );
+      } else if (scope == null && (ModalRoute.of(context)?.impliesAppBarDismissal ?? false)) {
+         watchLeading = IconButton(
+            onPressed: () { Navigator.of(context).maybePop(); },
+            icon: const Icon(Icons.arrow_back),
+         );
+      }
+
+      return WatchScaffold(
+        title: titleStr,
+        leading: watchLeading,
+        child: body,
+      );
+    }
+
     final PreferredSizeWidget appBar;
 
     if (scope != null && scope.embedded) {

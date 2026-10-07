@@ -1,19 +1,14 @@
-import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:flutter_modular/flutter_modular.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:window_manager/window_manager.dart';
 
-import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
-import 'package:kazumi/bean/card/bangumi_info_card.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/collect_button.dart';
-import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
+import 'package:kazumi/bean/widget/circle_insets.dart';
+import 'package:kazumi/bean/widget/watch_scaffold.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/info/info_controller.dart';
 import 'package:kazumi/pages/info/info_tabview.dart';
@@ -305,280 +300,280 @@ class _InfoPageState extends State<InfoPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bool showWindowButton =
-        GStorage.getSetting(SettingsKeys.showWindowButton);
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-          return <Widget>[
-            SliverOverlapAbsorber(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-              sliver: SliverAppBar.medium(
-                title: EmbeddedNativeControlArea(
-                  child: dtb.DragToMoveArea(
-                    child: Container(
-                      width: double.infinity,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        infoController.bangumiItem.nameCn == ''
-                            ? infoController.bangumiItem.name
-                            : infoController.bangumiItem.nameCn,
-                      ),
-                    ),
-                  ),
-                ),
-                automaticallyImplyLeading: false,
-                scrolledUnderElevation: 0.0,
-                leading: EmbeddedNativeControlArea(
-                  child: IconButton(
-                    onPressed: () {
-                      context.maybePop();
-                    },
-                    icon: Icon(Icons.arrow_back),
-                  ),
-                ),
-                actions: [
-                  if (innerBoxIsScrolled)
-                    EmbeddedNativeControlArea(
-                      child: CollectButton(
-                        bangumiItem: infoController.bangumiItem,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  EmbeddedNativeControlArea(
-                    child: IconButton(
-                      onPressed: () {
-                        launchUrl(
-                          Uri.parse(
-                              'https://bangumi.tv/subject/${infoController.bangumiItem.id}'),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      },
-                      icon: const Icon(Icons.open_in_browser_rounded),
-                    ),
-                  ),
-                  if (!showWindowButton && isDesktop())
-                    CloseButton(onPressed: () => windowManager.close()),
-                  SizedBox(width: 8),
-                ],
-                toolbarHeight: (Platform.isMacOS && showWindowButton)
-                    ? kToolbarHeight + 22
-                    : kToolbarHeight,
-                stretch: true,
-                centerTitle: false,
-                expandedHeight: (Platform.isMacOS && showWindowButton)
-                    ? 308 + kTextTabBarHeight + kToolbarHeight + 22
-                    : 308 + kTextTabBarHeight + kToolbarHeight,
-                collapsedHeight: (Platform.isMacOS && showWindowButton)
-                    ? kTextTabBarHeight +
-                        kToolbarHeight +
-                        MediaQuery.paddingOf(context).top +
-                        22
-                    : kTextTabBarHeight +
-                        kToolbarHeight +
-                        MediaQuery.paddingOf(context).top,
-                flexibleSpace: FlexibleSpaceBar(
-                  collapseMode: CollapseMode.pin,
-                  background: Observer(builder: (context) {
-                    final showBangumiInfoSkeleton =
-                        _isShowingBangumiInfoSkeleton;
-                    return Stack(
-                      children: [
-                        if (!showBangumiInfoSkeleton)
-                          Positioned.fill(
-                            bottom: kTextTabBarHeight,
-                            child: IgnorePointer(
-                              child: _InfoHeaderBackground(
-                                imageUrl: infoController
-                                        .bangumiItem.images['large'] ??
-                                    '',
-                              ),
-                            ),
-                          ),
-                        SafeArea(
-                          bottom: false,
-                          child: EmbeddedNativeControlArea(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                    16, kToolbarHeight, 16, 0),
-                                child: BangumiInfoCardV(
-                                  bangumiItem: infoController.bangumiItem,
-                                  isLoading: showBangumiInfoSkeleton,
-                                  showRating: showRating,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-                forceElevated: innerBoxIsScrolled,
-                bottom: TabBar(
-                  controller: infoTabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.center,
-                  dividerHeight: 0,
-                  tabs: _infoTabs.map((name) => Tab(text: name)).toList(),
-                ),
-              ),
-            ),
-          ];
-        },
-        body: Observer(builder: (context) {
-          final showBangumiInfoSkeleton = _isShowingBangumiInfoSkeleton;
-          return InfoTabView(
-            tabController: infoTabController,
-            bangumiItem: infoController.bangumiItem,
-            commentsQueryTimeout: commentsQueryTimeout,
-            commentsHasLoaded: commentsHasLoaded,
-            charactersQueryTimeout: charactersQueryTimeout,
-            charactersIsEmpty: charactersIsEmpty,
-            staffQueryTimeout: staffQueryTimeout,
-            staffIsEmpty: staffIsEmpty,
-            loadMoreComments: loadMoreComments,
-            loadCharacters: loadCharacters,
-            loadStaff: loadStaff,
-            commentsList: infoController.commentsList.toList(growable: false),
-            commentsIsLoading: commentsIsLoading,
-            onWriteReview: _openReviewEditor,
-            characterList: infoController.characterList,
-            staffList: infoController.staffList,
-            relationList: infoController.relationList,
-            relationsIsLoading: infoController.relationsIsLoading,
-            relationsQueryTimeout: infoController.relationsQueryTimeout,
-            relationsHasLoaded: infoController.relationsHasLoaded,
-            loadRelations: loadRelations,
-            isLoading: showBangumiInfoSkeleton,
-          );
-        }),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        tooltip: '开始观看',
-        onPressed: () {
-          showAdaptiveBottomSheet<void>(
-            context: context,
-            maxHeightFactor: 0.88,
-            builder: (context) {
-              return SourceSheet(infoController: infoController);
-            },
-          );
-        },
-        label: const Text('开始观看'),
-        icon: const Icon(Icons.play_arrow_rounded),
-      ),
-    );
-  }
-}
-
-class _InfoHeaderBackground extends StatelessWidget {
-  const _InfoHeaderBackground({
-    required this.imageUrl,
-  });
-
-  static const double _downsample = 0.5;
-  static const double _blurSigma = 15.0;
-  static const double _opacity = 0.4;
-  static const double _edgeBleed = 32.0;
-  static const double _bottomFeatherHeight = 48.0;
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
-      return const SizedBox.shrink();
+  void _openSourceSheet() {
+    // 圆表：SourceSheet 内部已经是完整的整页（Scaffold + 自绘标题带），
+    // 必须用「整页宿主」打开。若仍走 showAdaptiveBottomSheet 的圆屏分支，
+    // 它会把整页 Scaffold 塞进单 190dp 高、且主轴无界的 SingleChildScrollView
+    // —— Scaffold 拿到无限高度直接布局失败，首帧就是整页空白。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SourceSheet(infoController: infoController),
+        ),
+      );
+      return;
     }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        if (width <= 0 || height <= 0) {
-          return const SizedBox.shrink();
-        }
-
-        final rasterWidth = width * _downsample;
-        final rasterHeight = (height + _edgeBleed) * _downsample;
-
-        final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-
-        return ClipRect(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) {
-                  return const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white,
-                      Colors.transparent,
-                    ],
-                    stops: [0.8, 1],
-                  ).createShader(bounds);
-                },
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: RepaintBoundary(
-                    child: Transform.scale(
-                      scale: 1 / _downsample,
-                      alignment: Alignment.topCenter,
-                      filterQuality: FilterQuality.low,
-                      child: SizedBox(
-                        width: rasterWidth,
-                        height: rasterHeight,
-                        child: ImageFiltered(
-                          imageFilter: ImageFilter.blur(
-                            sigmaX: _blurSigma * _downsample,
-                            sigmaY: _blurSigma * _downsample,
-                          ),
-                          child: NetworkImgLayer(
-                            src: imageUrl,
-                            width: rasterWidth,
-                            height: rasterHeight,
-                            fadeInDuration: Duration.zero,
-                            fadeOutDuration: Duration.zero,
-                            filterQuality: FilterQuality.low,
-                            color: Colors.white.withValues(alpha: _opacity),
-                            colorBlendMode: BlendMode.modulate,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: _bottomFeatherHeight,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        backgroundColor.withValues(alpha: 0),
-                        backgroundColor.withValues(alpha: 0.55),
-                        backgroundColor,
-                      ],
-                      stops: const [0, 0.72, 1],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+    showAdaptiveBottomSheet<void>(
+      context: context,
+      maxHeightFactor: 0.88,
+      builder: (context) {
+        return SourceSheet(infoController: infoController);
       },
     );
   }
+
+  String get _displayTitle {
+    final item = infoController.bangumiItem;
+    return item.nameCn == '' ? item.name : item.nameCn;
+  }
+
+  // 圆屏头部：海报/标题/元信息/评分整体作为核心带内容，横向内缩按行取带表
+  Widget _buildWatchHeader() {
+    final theme = Theme.of(context);
+    final item = infoController.bangumiItem;
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: CircleInsets.bandInset(CircleInsets.bodyTop),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          // 海报 72x104 居中
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: NetworkImgLayer(
+              src: item.images['large'] ?? item.images['common'] ?? '',
+              width: 72,
+              height: 104,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 标题 15 号、最多两行
+          Text(
+            _displayTitle,
+            style: theme.textTheme.titleMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          // 元信息 11 号
+          Text(
+            item.airDate,
+            style: theme.textTheme.labelMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          if (showRating && showRating) ...[
+            const SizedBox(height: 4),
+            // 评分 22 w700 tabular，字号统一走 watchTheme
+            Text(
+              item.ratingScore.toStringAsFixed(1),
+              style: theme.textTheme.displaySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // 5 页签改为横向 chips（chips 横向滚动属于规范允许的例外）
+  Widget _buildWatchTabChips() {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 36,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: CircleInsets.bandInset(60),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_infoTabs.length, (index) {
+                    final selected = infoTabController.index == index;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(_infoTabs[index]),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() {
+                            infoTabController.index = index;
+                          });
+                        },
+                        labelStyle: theme.textTheme.labelMedium,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 滚动末项：追番/外链两个 40dp tonal 圆钮（次级操作，留在列表末尾）
+  Widget _buildWatchSecondaryActions() {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CollectButton(
+                bangumiItem: infoController.bangumiItem,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: IconButton.filledTonal(
+                onPressed: () {
+                  launchUrl(
+                    Uri.parse(
+                        'https://bangumi.tv/subject/${infoController.bangumiItem.id}'),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+                icon: const Icon(Icons.open_in_browser_rounded),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  /// 常驻播放入口（贴下沿、圆的安全区内）。
+  /// 原来是列表末项 —— 得滑到整页最底才看得见，重构前那版是常驻的
+  /// floatingActionButton，等于被改没了。官方 Wear 对这种主操作的推荐位置
+  /// 同样是固定槽位（edgeButton），不要放进滚动列表。
+  ///
+  /// 固定槽位的几何：底距 44 + 按钮高 44 + 与内容的 8dp 间隔。
+  /// 滚动视口必须整块让出这 96dp（见 build 里的 Padding），否则内容会从
+  /// 按钮左右/下方穿过去 —— Positioned 只决定自身绘制位置，不参与视口尺寸。
+  static const double _watchPlayButtonHeight = 44;
+  // 底距取到接近几何下限：按钮宽 160、圆屏 R=116.5 —— 底角要留在圆内，
+  // 算下来按钮中心 y ≤ 179，即底距 ≥ ~32dp。取 34 留 2dp 余量。
+  // （原来 44 显得太靠中，视觉上像浮在半空。）
+  static const double _watchPlayButtonBottom = 34;
+  static const double _watchPlayContentGap = 8;
+  static const double _watchPlayBottomReserve = _watchPlayButtonBottom +
+      _watchPlayButtonHeight +
+      _watchPlayContentGap;
+
+  Widget _buildWatchPlayButton() {
+    return SizedBox(
+      width: 160,
+      height: _watchPlayButtonHeight,
+      child: FilledButton(
+        onPressed: _openSourceSheet,
+        style: FilledButton.styleFrom(
+          shape: const StadiumBorder(),
+          padding: EdgeInsets.zero,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.play_arrow_rounded, size: 22),
+            const SizedBox(width: 4),
+            Text('开始观看', style: Theme.of(context).textTheme.labelLarge),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WatchScaffold(
+      title: _displayTitle,
+      leading: IconButton(
+        onPressed: () {
+          Navigator.of(context).maybePop();
+        },
+        icon: const Icon(Icons.arrow_back),
+      ),
+      child: Stack(
+        children: [
+          // 视口铺满整屏：底部预留不再切视口，改由 InfoTabView 内部滚动容器的
+          // contentPadding 承担（见下面的 bottomReserve 传参）——内容可以铺到
+          // 「开始观看」药丸下方（悬浮观感），而最后一项滚到底时会被顶到药丸上方。
+          CustomScrollView(
+            slivers: [
+            SliverToBoxAdapter(
+              child: Observer(builder: (context) {
+                return _buildWatchHeader();
+              }),
+            ),
+            SliverToBoxAdapter(
+              child: _buildWatchTabChips(),
+            ),
+            // TabBarView 保留，占满剩余视口高度
+            SliverFillRemaining(
+              hasScrollBody: true,
+              child: Observer(builder: (context) {
+                final showBangumiInfoSkeleton = _isShowingBangumiInfoSkeleton;
+                return InfoTabView(
+                  tabController: infoTabController,
+                  bangumiItem: infoController.bangumiItem,
+                  commentsQueryTimeout: commentsQueryTimeout,
+                  commentsHasLoaded: commentsHasLoaded,
+                  charactersQueryTimeout: charactersQueryTimeout,
+                  charactersIsEmpty: charactersIsEmpty,
+                  staffQueryTimeout: staffQueryTimeout,
+                  staffIsEmpty: staffIsEmpty,
+                  loadMoreComments: loadMoreComments,
+                  loadCharacters: loadCharacters,
+                  loadStaff: loadStaff,
+                  commentsList:
+                      infoController.commentsList.toList(growable: false),
+                  commentsIsLoading: commentsIsLoading,
+                  onWriteReview: _openReviewEditor,
+                  characterList: infoController.characterList,
+                  staffList: infoController.staffList,
+                  relationList: infoController.relationList,
+                  relationsIsLoading: infoController.relationsIsLoading,
+                  relationsQueryTimeout: infoController.relationsQueryTimeout,
+                  relationsHasLoaded: infoController.relationsHasLoaded,
+                  loadRelations: loadRelations,
+                  isLoading: showBangumiInfoSkeleton,
+                  // 底部「开始观看」药丸的预留高度：交给 tab 内真正滚动的容器
+                  // 作为 contentPadding，保证最后一项能完整滚到药丸上方。
+                  bottomReserve: _watchPlayBottomReserve,
+                  // 次级操作（追番/外链）从这里传入，在概览 tab 末尾渲染；
+                  // 原来放在 SliverFillRemaining 后面的 sliver 永远不会被渲染。
+                  secondaryActions: _buildWatchSecondaryActions(),
+                );
+              }),
+            ),
+              ],
+            ),
+          // 常驻的「开始观看」，贴下沿、留在圆的安全区内
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: _watchPlayButtonBottom,
+            child: Center(child: _buildWatchPlayButton()),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
