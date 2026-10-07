@@ -28,6 +28,14 @@ class CurvedNavBar extends StatelessWidget {
   static const double _radius = 80.0;
   static const double _itemSize = 44.0;
   static const double _iconSize = 22.0;
+
+  /// 导航栏在屏幕底部占据的高度。
+  ///
+  /// 语义：内容铺满整屏、导航栏悬浮其上时，列表末尾要留这么多可滚出的空间，
+  /// 保证最后一项能完整滚到导航栏「上方」而不是停在按钮背后。
+  /// 几何：最外侧格 θ=54°，中心 y = 116.5 + 80·cos54° ≈ 163.5，格半径 22，
+  /// 上沿 ≈ 141.5 → 预留 = 233 − 141.5 ≈ 91.5，向上取整 93。
+  static const double reserveBottom = 93.0;
   
   // 角度列表 (度)
   static const List<double> _anglesDeg = [-54.0, -18.0, 18.0, 54.0];
@@ -116,4 +124,31 @@ class CurvedNavBar extends StatelessWidget {
       },
     );
   }
+}
+
+/// 把「底部悬浮导航栏高度」透传给子树，供列表在自身的 contentPadding 里预留。
+///
+/// 之所以不用 MediaQuery.padding 承载：padding 是全屏通用信号，会在对话框、
+/// 底部弹窗、独立路由等处被无关组件读到，造成难以追踪的连锁内缩。这里用一个
+/// 专用信号，只有 [WatchBandList] 这类需要「末尾可滚出」的滚动容器消费它。
+class WatchNavReserve extends InheritedWidget {
+  const WatchNavReserve({
+    super.key,
+    required this.bottom,
+    required super.child,
+  });
+
+  /// 底部需要为导航栏留出的高度（0 = 当前没有底部导航）。
+  final double bottom;
+
+  static double bottomOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<WatchNavReserve>()
+            ?.bottom ??
+        0.0;
+  }
+
+  @override
+  bool updateShouldNotify(WatchNavReserve oldWidget) =>
+      oldWidget.bottom != bottom;
 }

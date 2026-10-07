@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
+import 'package:kazumi/bean/widget/curved_nav_bar.dart';
 
 /// 圆屏专用列表
 /// 每一行根据其在屏幕上的实时 Y 坐标动态计算左右内缩，以适配圆形边界
@@ -15,6 +16,7 @@ class WatchBandList extends StatefulWidget {
     this.edgeScale = 0.85,
     this.edgeAlpha = 0.6,
     this.controller,
+    this.contentBottomPadding = 0.0,
   });
 
   final int itemCount;
@@ -40,6 +42,10 @@ class WatchBandList extends StatefulWidget {
 
   /// 滚动控制器
   final ScrollController? controller;
+
+  /// 除 shell 导航栏预留（WatchNavReserve）外，额外叠加的底部预留高度。
+  /// 供不走 shell 的独立路由（如详情页的「开始观看」药丸）使用；0 = 不叠加。
+  final double contentBottomPadding;
 
   @override
   State<WatchBandList> createState() => _WatchBandListState();
@@ -73,8 +79,15 @@ class _WatchBandListState extends State<WatchBandList> {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
+        // 底部悬浮导航的预留高度由 shell 透传（无导航 = 0）。
+        // 这里作为 ListView 的 contentPadding，只给「末尾」留可滚出的空间 ——
+        // 内容本身仍能铺到导航栏下方（悬浮观感），而最后一项滚到底时会被
+        // 顶到导航栏上方，不会被按钮挡住。
+        final navReserve = WatchNavReserve.bottomOf(context);
         return ListView.builder(
           controller: _controller,
+          padding: EdgeInsets.only(
+              bottom: navReserve + widget.contentBottomPadding),
           itemCount: widget.itemCount,
           itemBuilder: (context, index) {
             // 计算当前行的顶部 Y 坐标（相对于屏幕原点）

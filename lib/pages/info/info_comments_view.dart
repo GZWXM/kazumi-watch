@@ -17,6 +17,7 @@ class InfoCommentsView extends StatelessWidget {
     required this.onReviewTap,
     required this.onRetry,
     required this.onLoadMore,
+    this.bottomReserve = 0.0,
   });
 
   static const _writeReviewLabel = '下面我简单喵两句';
@@ -29,6 +30,10 @@ class InfoCommentsView extends StatelessWidget {
   final VoidCallback onReviewTap;
   final VoidCallback onRetry;
   final VoidCallback onLoadMore;
+
+  /// 底部常驻按钮（详情页「开始观看」）预留高度。走 shell 的页面由 shell 承担
+  /// 保留区，这里默认只留 96dp 呼吸空间；独立路由传入实际预留后取较大者。
+  final double bottomReserve;
 
   CommentItem? get _ownComment {
     final review = interest;
@@ -141,9 +146,11 @@ class InfoCommentsView extends StatelessWidget {
               ),
             ),
           if (ownComment != null || comments.isNotEmpty)
-            const SliverToBoxAdapter(
-              // 底部保留区由 shell 注入，这里只留滚动呼吸空间
-              child: SizedBox(height: 96),
+            SliverToBoxAdapter(
+              // 底部保留区：走 shell 时由 shell 注入，这里只留滚动呼吸空间；
+              // 独立路由（详情页）传入的预留更大时取之，保证末条能滚出按钮上方。
+              child: SizedBox(
+                  height: bottomReserve > 96 ? bottomReserve : 96),
             ),
         ],
       ),

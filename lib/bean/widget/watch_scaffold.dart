@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/circle_insets.dart';
+import 'package:kazumi/bean/widget/curved_nav_bar.dart';
 
 /// Wear OS 页面骨架
 /// 替代 AppBar+Scaffold，处理圆屏安全区、标题带渐隐、底部导航保留区
@@ -32,14 +33,16 @@ class WatchScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final theme = Theme.of(context);
-    
-    // 底部内缩：至少 45dp，或者系统安全区，或者菜单注入的 93dp
-    // 在 menu.dart 中，如果是 watch shell，会注入 padding.bottom = 93
-    // 这里取最大值以确保不被遮挡
-    final bottomInset = mq.padding.bottom > 0 ? mq.padding.bottom : 45.0;
-    // 实际上方案说：shell 内 menu 会注入 93。独立路由页 -> 内容底 188 (233-45)。
-    // 这里的 child 应该是一个 CustomScrollView 或者 ListView，它需要知道可用高度。
-    // 为了简化，我们假设 child 已经处理了滚动，或者我们在外层包裹一个 ClipRect 和 Padding
+
+    // 底部悬浮导航（由 menu.dart 的圆表 shell 通过 WatchNavReserve 透传）：
+    // 此时内容铺满整屏、导航栏悬浮其上，WatchScaffold 不再裁掉可视区；
+    // 末尾留白交给列表自己的 contentPadding（见 WatchBandList），
+    // 这样最后一项能完整滚出而不是停在按钮背后。
+    final navReserve = WatchNavReserve.bottomOf(context);
+    // 没有悬浮导航时保持原行为：至少 45dp 或系统安全区（独立路由页口径）。
+    final bottomInset = navReserve > 0
+        ? 0.0
+        : (mq.padding.bottom > 0 ? mq.padding.bottom : 45.0);
     
     // 标题带位置 [max(24, padding.top), +20)
     final titleTop = CircleInsets.titleTop;

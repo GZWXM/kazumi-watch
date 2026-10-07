@@ -43,6 +43,9 @@ class InfoTabView extends StatefulWidget {
     required this.isLoading,
     // 次级操作从 info_page 传入，避免放在 SliverFillRemaining 后的死 sliver
     required this.secondaryActions,
+    // 底部常驻按钮（「开始观看」）预留高度：由外层页面传入，作用在各 tab
+    // 内部真正滚动的容器上，保证最后一项能完整滚到按钮上方。
+    this.bottomReserve = 0.0,
   });
 
   final bool commentsQueryTimeout;
@@ -68,6 +71,9 @@ class InfoTabView extends StatefulWidget {
   final List<BangumiRelation> relationList;
   final bool isLoading;
   final Widget secondaryActions;
+
+  /// 底部常驻按钮预留高度（详情页「开始观看」药丸）。0 = 无预留（如首页 shell）。
+  final double bottomReserve;
 
   @override
   State<InfoTabView> createState() => _InfoTabViewState();
@@ -212,6 +218,7 @@ class _InfoTabViewState extends State<InfoTabView> {
       return WatchBandList(
         key: const PageStorageKey<String>('关联'),
         itemCount: 3,
+        contentBottomPadding: widget.bottomReserve,
         pitch: 68,
         itemBuilder: (context, _) => Skeletonizer.zone(
           child: const WatchMediaRow(
@@ -224,6 +231,7 @@ class _InfoTabViewState extends State<InfoTabView> {
     return WatchBandList(
       key: const PageStorageKey<String>('关联'),
       itemCount: widget.relationList.length,
+      contentBottomPadding: widget.bottomReserve,
       pitch: 68,
       itemBuilder: (context, index) {
         final rel = widget.relationList[index];
@@ -290,6 +298,7 @@ class _InfoTabViewState extends State<InfoTabView> {
       return WatchBandList(
         key: const PageStorageKey<String>('制作人员'),
         itemCount: widget.staffList.length,
+        contentBottomPadding: widget.bottomReserve,
         pitch: 52,
         itemBuilder: (context, index) {
           final s = widget.staffList[index];
@@ -318,6 +327,7 @@ class _InfoTabViewState extends State<InfoTabView> {
     return WatchBandList(
       key: const PageStorageKey<String>('制作人员'),
       itemCount: 8,
+      contentBottomPadding: widget.bottomReserve,
       pitch: 52,
       itemBuilder: (context, _) => Skeletonizer.zone(
         child: const WatchRow(
@@ -334,6 +344,7 @@ class _InfoTabViewState extends State<InfoTabView> {
       return WatchBandList(
         key: const PageStorageKey<String>('角色'),
         itemCount: widget.characterList.length,
+        contentBottomPadding: widget.bottomReserve,
         pitch: 52,
         itemBuilder: (context, index) {
           final c = widget.characterList[index];
@@ -378,6 +389,7 @@ class _InfoTabViewState extends State<InfoTabView> {
     return WatchBandList(
       key: const PageStorageKey<String>('角色'),
       itemCount: 4,
+      contentBottomPadding: widget.bottomReserve,
       pitch: 52,
       itemBuilder: (context, _) => Skeletonizer.zone(
         child: const WatchRow(
@@ -396,6 +408,9 @@ class _InfoTabViewState extends State<InfoTabView> {
         // 概览 tab：简介 + 标签 + 次级操作（追番/外链）
         SingleChildScrollView(
           key: const PageStorageKey<String>('概览'),
+          // 底部预留只作用在滚动内容上：内容能铺到药丸下方，
+          // 最后一项滚到底时会被顶到药丸上方。
+          padding: EdgeInsets.only(bottom: widget.bottomReserve),
           child: SafeArea(
             top: false,
             bottom: false,
@@ -410,6 +425,7 @@ class _InfoTabViewState extends State<InfoTabView> {
           ),
         ),
         InfoCommentsView(
+          bottomReserve: widget.bottomReserve,
           interest: widget.bangumiItem.interest,
           comments: widget.commentsList,
           isLoading: widget.commentsIsLoading,

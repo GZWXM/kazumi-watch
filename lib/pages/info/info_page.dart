@@ -468,7 +468,10 @@ class _InfoPageState extends State<InfoPage>
   /// 滚动视口必须整块让出这 96dp（见 build 里的 Padding），否则内容会从
   /// 按钮左右/下方穿过去 —— Positioned 只决定自身绘制位置，不参与视口尺寸。
   static const double _watchPlayButtonHeight = 44;
-  static const double _watchPlayButtonBottom = 44;
+  // 底距取到接近几何下限：按钮宽 160、圆屏 R=116.5 —— 底角要留在圆内，
+  // 算下来按钮中心 y ≤ 179，即底距 ≥ ~32dp。取 34 留 2dp 余量。
+  // （原来 44 显得太靠中，视觉上像浮在半空。）
+  static const double _watchPlayButtonBottom = 34;
   static const double _watchPlayContentGap = 8;
   static const double _watchPlayBottomReserve = _watchPlayButtonBottom +
       _watchPlayButtonHeight +
@@ -508,12 +511,11 @@ class _InfoPageState extends State<InfoPage>
       ),
       child: Stack(
         children: [
-          // 滚动视口整块让出常驻按钮槽位（底部 96dp）；只在 slivers 末尾追加
-          // spacer 是不够的 —— 滚动过程中内容仍会经过按钮下方。
-          Padding(
-            padding: const EdgeInsets.only(bottom: _watchPlayBottomReserve),
-            child: CustomScrollView(
-              slivers: [
+          // 视口铺满整屏：底部预留不再切视口，改由 InfoTabView 内部滚动容器的
+          // contentPadding 承担（见下面的 bottomReserve 传参）——内容可以铺到
+          // 「开始观看」药丸下方（悬浮观感），而最后一项滚到底时会被顶到药丸上方。
+          CustomScrollView(
+            slivers: [
             SliverToBoxAdapter(
               child: Observer(builder: (context) {
                 return _buildWatchHeader();
@@ -551,6 +553,9 @@ class _InfoPageState extends State<InfoPage>
                   relationsHasLoaded: infoController.relationsHasLoaded,
                   loadRelations: loadRelations,
                   isLoading: showBangumiInfoSkeleton,
+                  // 底部「开始观看」药丸的预留高度：交给 tab 内真正滚动的容器
+                  // 作为 contentPadding，保证最后一项能完整滚到药丸上方。
+                  bottomReserve: _watchPlayBottomReserve,
                   // 次级操作（追番/外链）从这里传入，在概览 tab 末尾渲染；
                   // 原来放在 SliverFillRemaining 后面的 sliver 永远不会被渲染。
                   secondaryActions: _buildWatchSecondaryActions(),
@@ -559,7 +564,6 @@ class _InfoPageState extends State<InfoPage>
             ),
               ],
             ),
-          ),
           // 常驻的「开始观看」，贴下沿、留在圆的安全区内
           Positioned(
             left: 0,
