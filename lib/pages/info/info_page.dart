@@ -16,6 +16,7 @@ import 'package:kazumi/pages/info/rating_review_dialog.dart';
 import 'package:kazumi/pages/info/source_sheet.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/device.dart';
 
 class InfoPage extends StatefulWidget {
   const InfoPage({
@@ -300,6 +301,18 @@ class _InfoPageState extends State<InfoPage>
   }
 
   void _openSourceSheet() {
+    // 圆表：SourceSheet 内部已经是完整的整页（Scaffold + 自绘标题带），
+    // 必须用「整页宿主」打开。若仍走 showAdaptiveBottomSheet 的圆屏分支，
+    // 它会把整页 Scaffold 塞进单 190dp 高、且主轴无界的 SingleChildScrollView
+    // —— Scaffold 拿到无限高度直接布局失败，首帧就是整页空白。
+    if (isRoundWatch(MediaQuery.sizeOf(context))) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SourceSheet(infoController: infoController),
+        ),
+      );
+      return;
+    }
     showAdaptiveBottomSheet<void>(
       context: context,
       maxHeightFactor: 0.88,
@@ -450,10 +463,21 @@ class _InfoPageState extends State<InfoPage>
   /// 原来是列表末项 —— 得滑到整页最底才看得见，重构前那版是常驻的
   /// floatingActionButton，等于被改没了。官方 Wear 对这种主操作的推荐位置
   /// 同样是固定槽位（edgeButton），不要放进滚动列表。
+  ///
+  /// 固定槽位的几何：底距 44 + 按钮高 44 + 与内容的 8dp 间隔。
+  /// 滚动视口必须整块让出这 96dp（见 build 里的 Padding），否则内容会从
+  /// 按钮左右/下方穿过去 —— Positioned 只决定自身绘制位置，不参与视口尺寸。
+  static const double _watchPlayButtonHeight = 44;
+  static const double _watchPlayButtonBottom = 44;
+  static const double _watchPlayContentGap = 8;
+  static const double _watchPlayBottomReserve = _watchPlayButtonBottom +
+      _watchPlayButtonHeight +
+      _watchPlayContentGap;
+
   Widget _buildWatchPlayButton() {
     return SizedBox(
       width: 160,
-      height: 44,
+      height: _watchPlayButtonHeight,
       child: FilledButton(
         onPressed: _openSourceSheet,
         style: FilledButton.styleFrom(
@@ -484,8 +508,12 @@ class _InfoPageState extends State<InfoPage>
       ),
       child: Stack(
         children: [
-          CustomScrollView(
-            slivers: [
+          // 滚动视口整块让出常驻按钮槽位（底部 96dp）；只在 slivers 末尾追加
+          // spacer 是不够的 —— 滚动过程中内容仍会经过按钮下方。
+          Padding(
+            padding: const EdgeInsets.only(bottom: _watchPlayBottomReserve),
+            child: CustomScrollView(
+              slivers: [
             SliverToBoxAdapter(
               child: Observer(builder: (context) {
                 return _buildWatchHeader();
@@ -529,13 +557,14 @@ class _InfoPageState extends State<InfoPage>
                 );
               }),
             ),
-            ],
+              ],
+            ),
           ),
           // 常驻的「开始观看」，贴下沿、留在圆的安全区内
           Positioned(
             left: 0,
             right: 0,
-            bottom: 44,
+            bottom: _watchPlayButtonBottom,
             child: Center(child: _buildWatchPlayButton()),
           ),
         ],
